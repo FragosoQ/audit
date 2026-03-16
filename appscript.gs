@@ -37,6 +37,8 @@ function doPost(e) {
       adicionarQuestao(spreadsheet, data);
     } else if (operacao === 'apagarIntro') {
       apagarAuditoriaPlanificada(spreadsheet, data);
+    } else if (operacao === 'atualizarStatusIntro') {
+      atualizarStatusAuditoriaPlanificada(spreadsheet, data);
     } else if (operacao === 'obterQuestoes') {
       const questoes = obterQuestoes(spreadsheet);
       return HtmlService.createHtmlOutput(JSON.stringify(questoes));
@@ -107,21 +109,47 @@ function obterAuditorias(spreadsheet) {
       return [];
     }
 
-    const values = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 7)).getValues();
+    const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim().toLowerCase());
+    const values = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 12)).getValues();
     const registos = [];
+
+    const col = (aliases, fallbackIndex) => {
+      const idx = headerRow.findIndex(h => aliases.includes(h));
+      return idx >= 0 ? idx : fallbackIndex;
+    };
+
+    const idxId = col(['id'], 0);
+    const idxDept = col(['departamento', 'departamento '], 1);
+    const idxInvestigacao = col(['investigação (questão de auditoria)', 'investigacao (questão de auditoria)', 'investigação', 'investigacao'], 2);
+    const idxFoco = col(['foco / requisito', 'foco/requisito', 'foco'], 3);
+    const idxEvidencia = col(['constatação / evidência', 'constatacao / evidencia', 'evidencia', 'constatação/evidência'], 4);
+    const idxOm = col(['om'], 5);
+    const idxNc = col(['nc'], 6);
+    const idxAuditorCoord = col(['auditor coordenador'], 7);
+    const idxAuditor = col(['auditor'], 8);
+    const idxAuditado = col(['auditado'], 9);
+    const idxRegistadoPor = col(['registado por'], 10);
+    const idxData = col(['data'], 11);
+
+    const valor = (row, idx) => (idx >= 0 ? String(row[idx] || '') : '');
 
     values.forEach((row) => {
       const temDados = row.some(cell => cell !== null && cell !== '');
       if (!temDados) return;
 
       registos.push({
-        id: String(row[0] || ''),
-        departamento: String(row[1] || ''),
-        investigacao: String(row[2] || ''),
-        foco: String(row[3] || ''),
-        evidencia: String(row[4] || ''),
-        om: String(row[5] || ''),
-        nc: String(row[6] || '')
+        id: valor(row, idxId),
+        departamento: valor(row, idxDept),
+        auditorCoord: valor(row, idxAuditorCoord),
+        auditor: valor(row, idxAuditor),
+        auditado: valor(row, idxAuditado),
+        registadoPor: valor(row, idxRegistadoPor),
+        data: valor(row, idxData),
+        investigacao: valor(row, idxInvestigacao),
+        foco: valor(row, idxFoco),
+        evidencia: valor(row, idxEvidencia),
+        om: valor(row, idxOm),
+        nc: valor(row, idxNc)
       });
     });
 
@@ -147,7 +175,7 @@ function adicionarAuditoriaPlanificada(spreadsheet, data) {
     const headers = [
       'ID', 'Departamento', 'Auditor Coordenador', 'Auditor', 'Auditado',
       'Documentos de Referência da Empresa', 'Registado Por', 'Colaboradores Contactados',
-      'Requisitos', 'Data de Auditoria', 'Hora Prevista', 'Hora da Auditoria'
+      'Requisitos', 'Data de Auditoria', 'Hora Prevista', 'Hora da Auditoria', 'Realizada', 'Data Realização'
     ];
     
     // Verificar se headers existem, se não, adicionar
@@ -173,7 +201,9 @@ function adicionarAuditoriaPlanificada(spreadsheet, data) {
       data.requisitos,
       data.dataAuditoria,
       data.horaPrevista,
-      data.horaAuditoria
+      data.horaAuditoria,
+      data.realizada === true ? 'SIM' : 'NÃO',
+      data.dataRealizacao || ''
     ];
     
     for (let i = 0; i < valores.length; i++) {
@@ -185,6 +215,33 @@ function adicionarAuditoriaPlanificada(spreadsheet, data) {
   }
 }
 
+function atualizarStatusAuditoriaPlanificada(spreadsheet, data) {
+  try {
+    const sheet = spreadsheet.getSheetByName('INTRO');
+    const id = data.id;
+    if (!sheet || !id) return;
+
+    if (!sheet.getRange(1, 13).getValue()) sheet.getRange(1, 13).setValue('Realizada');
+    if (!sheet.getRange(1, 14).getValue()) sheet.getRange(1, 14).setValue('Data Realização');
+
+    const lastRow = sheet.getLastRow();
+    for (let i = 2; i <= lastRow; i++) {
+      const cellValue = sheet.getRange(i, 1).getValue();
+      if (String(cellValue) === String(id)) {
+        sheet.getRange(i, 13).setValue(data.realizada === true ? 'SIM' : 'NÃO');
+        sheet.getRange(i, 14).setValue(data.realizada === true ? (data.dataRealizacao || new Date().toISOString()) : '');
+        Logger.log('Status atualizado para ID: ' + id);
+        return;
+      }
+    }
+
+    Logger.log('ID não encontrado para atualizar status: ' + id);
+  } catch (erro) {
+    Logger.log('Erro em atualizarStatusAuditoriaPlanificada: ' + erro);
+    throw erro;
+  }
+}
+
 // Adicionar registos de auditoria à folha AUDITORIA
 function adicionarRegistosAuditoria(spreadsheet, data) {
   try {
@@ -192,8 +249,8 @@ function adicionarRegistosAuditoria(spreadsheet, data) {
     
     // Headers esperados conforme especificado
     const headers = [
-      'ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)',
-      'Foco / Requisito', 'CONSTATAÇÃO / EVIDÊNCIA', 'OM', 'NC'
+      'ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)', 'Foco / Requisito', 'CONSTATAÇÃO / EVIDÊNCIA', 'OM', 'NC',
+      'Auditor Coordenador', 'Auditor', 'Auditado', 'Registado Por', 'Data'
     ];
     
     // Verificar se headers existem
@@ -216,7 +273,12 @@ function adicionarRegistosAuditoria(spreadsheet, data) {
           registo.foco,
           registo.evidencia,
           registo.om,
-          registo.nc
+          registo.nc,
+          registo.auditorCoord,
+          registo.auditor,
+          registo.auditado,
+          registo.registadoPor,
+          registo.data
         ];
         
         for (let i = 0; i < valores.length; i++) {

@@ -31,7 +31,7 @@ Este é o passo **CRÍTICO** para funcionar:
 7. Copie o **novo URL de deployment**
 8. Em [index.html](index.html) linha ~503, confirme/atualize:
    ```javascript
-     const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlveT3-pLZYUC4696Q2xs4_qRQdyhSWqUQIdMJsTgkmVEHHOCnoZx0DoOyXnnqgdo-/exec';
+     const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFIKdU4JI7tMZ9L1DpcgcnjerWCDle46FGEh157eT2V9urrOgz8J7yZc_HuT2RJuuQ/exec';
    ```
 
 ---

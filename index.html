@@ -34,12 +34,15 @@
   --r-lg:32px;
   --r-xl:40px;
 }
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--slate900);min-height:100vh;font-size:14px;line-height:1.5}
+body{font-family:'DM Sans',sans-serif;background:radial-gradient(circle,rgb(134, 132, 132) 0%, rgba(0, 0, 0, 0.94) 100%);color:var(--slate900);min-height:100vh;font-size:14px;line-height:1.5}
 
 /* HEADER */
 .header{background:var(--slate900);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center}
+.header-right{display:flex;align-items:center}
+.header-center-logo{position:absolute;left:50%;transform:translateX(-50%);height:36px;pointer-events:none}
 .logo{display:flex;align-items:center;gap:.75rem;cursor:pointer;text-decoration:none}
-.logo-icon{background:var(--blue);width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform .2s}
+.logo-icon{background-image:url('https://static.wixstatic.com/media/a6967f_9ef3b47feca5413786a8f56b554a6366~mv2.png');background-size:cover;background-position:center;background-repeat:no-repeat;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform .2s}
 .logo:hover .logo-icon{transform:rotate(12deg)}
 .logo-text{display:flex;flex-direction:column;line-height:1}
 .logo-name{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.02em}
@@ -58,7 +61,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--slate900)
 .container{max-width:1200px;margin:0 auto;padding:2.5rem 2rem}
 
 /* MENU CARDS */
-.menu-hero{margin-bottom:3rem}
+.menu-hero{margin-bottom:3rem;color:#e5e7eb}
 .menu-hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:900;letter-spacing:-.04em;font-style:italic;text-transform:uppercase;line-height:1;margin-bottom:.5rem}
 .menu-hero p{color:var(--slate400);font-weight:500;font-size:15px}
 .menu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
@@ -91,7 +94,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--slate900)
 .card-purple .menu-card-cta{color:var(--purple)}
 
 /* PAGE HEADER */
-.page-header{margin-bottom:2rem}
+.page-header{margin-bottom:2rem;color:#e5e7eb}
 .page-header h2{font-size:clamp(1.5rem,3vw,2.5rem);font-weight:900;letter-spacing:-.03em;font-style:italic;text-transform:uppercase;margin-bottom:.25rem}
 .page-header p{color:var(--slate400);font-size:13px;font-weight:500}
 
@@ -212,11 +215,32 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 .filter-btn[style]:hover{border-color:var(--btn-color);background:var(--btn-light);color:var(--btn-color)}
 .filter-btn.active{background:var(--btn-color,var(--purple));color:#fff;border-color:var(--btn-color,var(--purple));box-shadow:0 4px 12px rgba(0,0,0,.15)}
 
+/* PLANEAMENTO CALENDÁRIO */
+.plan-calendar{background:var(--white);border:1px solid var(--slate100);border-radius:var(--r-lg);padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.plan-cal-head{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
+.plan-cal-title{font-size:13px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--slate700)}
+.plan-cal-nav{display:flex;gap:.5rem}
+.plan-week{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;margin-bottom:.5rem}
+.plan-week-day{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:var(--slate400);text-align:center}
+.plan-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem}
+.plan-day{min-height:96px;border:1px solid var(--slate100);border-radius:10px;padding:.45rem;background:var(--slate50)}
+.plan-day.empty{background:transparent;border:1px dashed var(--slate100)}
+.plan-day.today{border-color:var(--blue);background:var(--blue-light)}
+.plan-day-num{font-size:11px;font-weight:800;color:var(--slate700);margin-bottom:.35rem}
+.plan-chip{display:block;font-size:10px;line-height:1.2;padding:.22rem .35rem;border-radius:6px;margin-bottom:.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#61defb;color:var(--slate900)}
+.plan-chip.done{background:var(--emerald-light);color:var(--emerald)}
+.plan-check{display:inline-flex;align-items:center;gap:.45rem;font-size:11px;font-weight:700;color:var(--slate600);cursor:pointer}
+.plan-check input{width:14px;height:14px;accent-color:var(--emerald)}
+.plan-status{display:inline-flex;align-items:center;padding:.25rem .55rem;border-radius:999px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}
+.plan-status.done{background:var(--emerald-light);color:var(--emerald)}
+.plan-status.pending{background:var(--amber-light);color:var(--amber)}
+
 @media(max-width:640px){
   .q-body{grid-template-columns:1fr}
   .menu-grid{grid-template-columns:1fr}
   .sign-grid{grid-template-columns:1fr}
   .container{padding:1.5rem 1rem}
+  .plan-grid,.plan-week{grid-template-columns:repeat(2,1fr)}
 }
 @media print{
   .no-print{display:none!important}
@@ -236,17 +260,22 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 
 <!-- HEADER -->
 <header class="header">
-  <div class="logo" onclick="goHome()">
-    <div class="logo-icon">📋</div>
-    <div class="logo-text">
-      <span class="logo-name">Audit<span>Hub</span></span>
-      <span class="logo-sub">Sistema de Gestão</span>
+  <div class="header-left">
+    <div class="logo" onclick="goHome()">
+      <div class="logo-icon" aria-hidden="true"></div>
+      <div class="logo-text">
+        <span class="logo-name">Audit<span>Hub</span></span>
+        <span class="logo-sub">Sistema de Gestão</span>
+      </div>
     </div>
   </div>
-  <button class="header-back no-print" id="back-btn" style="display:none" onclick="goHome()">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 12L6 8l4-4"/></svg>
-    Painel Principal
-  </button>
+  <img class="header-center-logo" src="https://static.wixstatic.com/media/a6967f_4036f3eb3c1b4a47988293dd3da29925~mv2.png" alt="" aria-hidden="true">
+  <div class="header-right">
+    <button class="header-back no-print" id="back-btn" style="display:none" onclick="goHome()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 12L6 8l4-4"/></svg>
+      Painel Principal
+    </button>
+  </div>
 </header>
 
 <!-- DASHBOARD -->
@@ -299,6 +328,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
     <div class="toolbar">
       <button class="btn btn-dark" onclick="openPlanModal()">+ Agendar Auditoria</button>
     </div>
+    <div id="calIntro"></div>
     <div id="listaIntro"></div>
   </div>
 </div>
@@ -470,6 +500,26 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
       <h2 id="audit-title">Execução de Auditoria</h2>
       <p id="audit-desc">Departamento</p>
     </div>
+    <div class="card" style="padding:1.25rem;margin-bottom:1rem">
+      <div class="mform-grid" style="grid-template-columns:repeat(4,minmax(160px,1fr))">
+        <div class="mfield">
+          <label>Auditor Coordenador *</label>
+          <input id="execAuditorCoord" type="text" placeholder="Nome" />
+        </div>
+        <div class="mfield">
+          <label>Auditor *</label>
+          <input id="execAuditor" type="text" placeholder="Nome" />
+        </div>
+        <div class="mfield">
+          <label>Auditado *</label>
+          <input id="execAuditado" type="text" placeholder="Nome" />
+        </div>
+        <div class="mfield">
+          <label>Registado Por *</label>
+          <input id="execRegistadoPor" type="text" placeholder="Nome" />
+        </div>
+      </div>
+    </div>
     <div class="toolbar">
       <button class="btn btn-emerald no-print" onclick="goTo('relatorio')">📊 Concluir Relatório</button>
     </div>
@@ -482,7 +532,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 <div class="view" id="view-registos">
   <div class="container">
     <div class="page-header">
-      <h2>Investigações</h2>
+      <h2>Repositório de Questões</h2>
       <p>Questões de auditoria por departamento</p>
     </div>
     <div class="toolbar">
@@ -504,6 +554,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
     </div>
     <div class="toolbar">
       <button class="btn btn-dark" onclick="carregarEExibirRelatoriosRealizados()">↻ Recarregar do Sheet</button>
+      <button class="btn btn-ghost" onclick="exportarRelatorioPDF('rel-realizado-content', 'relatorio-realizado')">⬇ Exportar PDF</button>
     </div>
     <div id="relatorios-lista"></div>
     <div id="relatorios-empty" class="empty-state" style="display:none"><div class="ei">📄</div><p>Nenhum relatório encontrado no separador AUDITORIA.</p></div>
@@ -516,6 +567,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
   <div class="container">
     <div class="toolbar no-print" style="margin-bottom:1.5rem">
       <button class="btn btn-ghost" onclick="goTo('auditoria')">← Voltar</button>
+      <button class="btn btn-ghost" onclick="exportarRelatorioPDF('rel-content', 'relatorio-auditoria')">⬇ Exportar PDF</button>
       <button class="btn btn-blue" onclick="finalizarAuditoria()">✓ Finalizar Auditoria</button>
     </div>
     <div class="report-wrap" id="rel-content"></div>
@@ -523,7 +575,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 </div>
 
 <script>
-const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlveT3-pLZYUC4696Q2xs4_qRQdyhSWqUQIdMJsTgkmVEHHOCnoZx0DoOyXnnqgdo-/exec';
+const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFIKdU4JI7tMZ9L1DpcgcnjerWCDle46FGEh157eT2V9urrOgz8J7yZc_HuT2RJuuQ/exec';
 
 const DEPARTAMENTOS = {
   'DCO': 'Compras',
@@ -561,6 +613,7 @@ let dados = {
 let deptAtual = null;
 let deptFilterSelected = null; // Para filtro na view registos
 let relatoriosSheet = [];
+let planeamentoMesRef = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
 function goHome() { goTo('menu'); }
 function goTo(view) {
@@ -617,6 +670,8 @@ async function salvarIntro(e) {
     horaPrevista: document.getElementById('horaPrevista').value,
     horaAuditoria: document.getElementById('horaAuditoria').value,
     dataAuditoria: document.getElementById('dataAuditoria').value,
+    realizada: false,
+    dataRealizacao: '',
     dataCriacao: new Date().toISOString()
   };
 
@@ -633,14 +688,36 @@ async function salvarIntro(e) {
 }
 
 function renderPlaneamentos() {
-  const container = document.getElementById('listaIntro');
-  
-  if (dados.introPlaneamentos.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="ei">📅</div><p>Sem auditorias planeadas.</p></div>';
+  const listaContainer = document.getElementById('listaIntro');
+  const calContainer = document.getElementById('calIntro');
+
+  let mudouMeta = false;
+  dados.introPlaneamentos.forEach(intro => {
+    if (typeof intro.realizada !== 'boolean') {
+      intro.realizada = false;
+      mudouMeta = true;
+    }
+    if (typeof intro.dataRealizacao !== 'string') {
+      intro.dataRealizacao = '';
+      mudouMeta = true;
+    }
+  });
+  if (mudouMeta) guardarDados();
+
+  const planeamentosOrdenados = [...dados.introPlaneamentos].sort((a, b) => {
+    const aKey = `${a.dataAuditoria || ''} ${a.horaPrevista || ''}`;
+    const bKey = `${b.dataAuditoria || ''} ${b.horaPrevista || ''}`;
+    return aKey.localeCompare(bKey);
+  });
+
+  renderCalendarioPlaneamentos(calContainer, planeamentosOrdenados);
+
+  if (planeamentosOrdenados.length === 0) {
+    listaContainer.innerHTML = '<div class="empty-state"><div class="ei">📅</div><p>Sem auditorias planeadas.</p></div>';
     return;
   }
 
-  container.innerHTML = dados.introPlaneamentos.map(intro => `
+  listaContainer.innerHTML = planeamentosOrdenados.map(intro => `
     <div class="card" style="padding:1.5rem;margin-bottom:1rem">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem">
         <div style="flex:1">
@@ -648,18 +725,132 @@ function renderPlaneamentos() {
           <div style="font-size:12px;color:var(--slate500)">
             <div><strong>Auditor Coord:</strong> ${intro.auditorCoord}</div>
             <div><strong>Auditor:</strong> ${intro.auditor}</div>
-            <div><strong>Data:</strong> ${intro.dataAuditoria} ${intro.horaPrevista}</div>
+            <div><strong>Data:</strong> ${formatarDataSimples(intro.dataAuditoria)} ${intro.horaPrevista || ''}</div>
+            ${intro.realizada && intro.dataRealizacao ? `<div><strong>Confirmada em:</strong> ${formatarDataHoraSimples(intro.dataRealizacao)}</div>` : ''}
           </div>
         </div>
         <div style="display:flex;gap:.5rem">
+          <span class="plan-status ${intro.realizada ? 'done' : 'pending'}">${intro.realizada ? 'Realizada' : 'Planeada'}</span>
           <button class="btn btn-ghost btn-sm" onclick="window.alert('Editar em construção')">✎</button>
           <button class="btn btn-danger-ghost btn-sm" onclick="removerIntro('${intro.id}')">🗑</button>
         </div>
+      </div>
+      <div style="margin-bottom:.75rem">
+        <label class="plan-check">
+          <input type="checkbox" ${intro.realizada ? 'checked' : ''} onchange="togglePlaneamentoRealizado('${intro.id}', this.checked)" />
+          Confirmar como realizada
+        </label>
       </div>
       ${intro.documentosRef ? `<div style="margin-bottom:.75rem"><strong style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--slate400)">Documentos:</strong><p style="font-size:11px;color:var(--slate600);margin:.3rem 0 0 0">${intro.documentosRef}</p></div>` : ''}
       ${intro.requisitos ? `<div><strong style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--slate400)">Requisitos:</strong><p style="font-size:11px;color:var(--slate600);margin:.3rem 0 0 0">${intro.requisitos}</p></div>` : ''}
     </div>
   `).join('');
+}
+
+function renderCalendarioPlaneamentos(container, planeamentos) {
+  if (!container) return;
+
+  const ano = planeamentoMesRef.getFullYear();
+  const mes = planeamentoMesRef.getMonth();
+  const primeiroDiaMes = new Date(ano, mes, 1);
+  const totalDiasMes = new Date(ano, mes + 1, 0).getDate();
+  const inicioSemana = (primeiroDiaMes.getDay() + 6) % 7;
+
+  const eventosDoMes = planeamentos.filter(p => {
+    if (!p.dataAuditoria) return false;
+    const [y, m] = p.dataAuditoria.split('-').map(Number);
+    return y === ano && (m - 1) === mes;
+  });
+
+  const eventosPorDia = {};
+  eventosDoMes.forEach(p => {
+    const d = Number((p.dataAuditoria || '').split('-')[2] || 0);
+    if (!d) return;
+    if (!eventosPorDia[d]) eventosPorDia[d] = [];
+    eventosPorDia[d].push(p);
+  });
+
+  const nomeMes = planeamentoMesRef.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+  const hoje = new Date();
+
+  const dias = [];
+  for (let i = 0; i < inicioSemana; i++) {
+    dias.push('<div class="plan-day empty"></div>');
+  }
+
+  for (let d = 1; d <= totalDiasMes; d++) {
+    const listaDia = eventosPorDia[d] || [];
+    const isToday = hoje.getFullYear() === ano && hoje.getMonth() === mes && hoje.getDate() === d;
+
+    dias.push(`
+      <div class="plan-day ${isToday ? 'today' : ''}">
+        <div class="plan-day-num">${d}</div>
+        ${listaDia.map(item => `<span class="plan-chip ${item.realizada ? 'done' : ''}">${item.departamento} ${item.realizada ? '✓' : ''}</span>`).join('')}
+      </div>
+    `);
+  }
+
+  container.innerHTML = `
+    <div class="plan-calendar">
+      <div class="plan-cal-head">
+        <div class="plan-cal-title">Calendário ${nomeMes}</div>
+        <div class="plan-cal-nav">
+          <button class="btn btn-ghost btn-sm" onclick="alterarMesPlaneamento(-1)">←</button>
+          <button class="btn btn-ghost btn-sm" onclick="irMesAtualPlaneamento()">Hoje</button>
+          <button class="btn btn-ghost btn-sm" onclick="alterarMesPlaneamento(1)">→</button>
+        </div>
+      </div>
+      <div class="plan-week">
+        <div class="plan-week-day">Seg</div>
+        <div class="plan-week-day">Ter</div>
+        <div class="plan-week-day">Qua</div>
+        <div class="plan-week-day">Qui</div>
+        <div class="plan-week-day">Sex</div>
+        <div class="plan-week-day">Sáb</div>
+        <div class="plan-week-day">Dom</div>
+      </div>
+      <div class="plan-grid">${dias.join('')}</div>
+    </div>
+  `;
+}
+
+function alterarMesPlaneamento(delta) {
+  planeamentoMesRef = new Date(planeamentoMesRef.getFullYear(), planeamentoMesRef.getMonth() + delta, 1);
+  renderPlaneamentos();
+}
+
+function irMesAtualPlaneamento() {
+  const hoje = new Date();
+  planeamentoMesRef = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  renderPlaneamentos();
+}
+
+async function togglePlaneamentoRealizado(id, checked) {
+  const intro = dados.introPlaneamentos.find(i => i.id === id);
+  if (!intro) return;
+  intro.realizada = checked;
+  intro.dataRealizacao = checked ? new Date().toISOString() : '';
+  guardarDados();
+  renderPlaneamentos();
+
+  await enviarParaAppScript('atualizarStatusIntro', {
+    id,
+    realizada: intro.realizada,
+    dataRealizacao: intro.dataRealizacao
+  });
+}
+
+function formatarDataSimples(isoData) {
+  if (!isoData || !isoData.includes('-')) return isoData || '—';
+  const [ano, mes, dia] = isoData.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataHoraSimples(isoDataHora) {
+  if (!isoDataHora) return '—';
+  const data = new Date(isoDataHora);
+  if (isNaN(data.getTime())) return isoDataHora;
+  return data.toLocaleString('pt-PT');
 }
 
 function removerIntro(id) {
@@ -972,6 +1163,58 @@ function formatarDataAuditId(auditId) {
   return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]}`;
 }
 
+function exportarRelatorioPDF(containerId, nomeBase = 'relatorio') {
+  const origem = document.getElementById(containerId);
+  if (!origem || !origem.innerHTML.trim()) {
+    alert('Nenhum relatório disponível para exportar.');
+    return;
+  }
+
+  const clone = origem.cloneNode(true);
+  clone.querySelectorAll('input').forEach(input => {
+    input.setAttribute('value', input.value || '');
+  });
+
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    alert('Permita pop-ups para exportar o PDF.');
+    return;
+  }
+
+  const estilos = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+  const fontes = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
+  const dataHoje = new Date().toISOString().split('T')[0];
+  const titulo = `${nomeBase}-${dataHoje}`;
+
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>${titulo}</title>
+      ${fontes}
+      ${estilos}
+      <style>
+        body { background:#fff !important; padding:24px; }
+      </style>
+    </head>
+    <body>
+      <div class="report-wrap">${clone.innerHTML}</div>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 120);
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  janela.document.close();
+}
+
 async function carregarEExibirRelatoriosRealizados() {
   const lista = document.getElementById('relatorios-lista');
   const empty = document.getElementById('relatorios-empty');
@@ -1025,18 +1268,154 @@ function verRelatorioRealizado(auditId) {
   if (!registos.length) return;
 
   const dept = registos[0].departamento || '—';
+  const auditorCoord = registos[0].auditorCoord || '—';
+  const auditor = registos[0].auditor || '—';
+  const auditado = registos[0].auditado || '—';
+  const registadoPor = registos[0].registadoPor || '—';
+  const dataRelatorio = registos[0].data || formatarDataAuditId(auditId).split(' ')[0] || '—';
+
+
+  // Smart analysis block
+  const total = registos.length;
+  const countOK = registos.filter(r => r.nc === 'OK').length;
+  const countOM = registos.filter(r => r.nc === 'OM').length;
+  const countNC = registos.filter(r => r.nc === 'NC').length;
+  const countBlank = registos.filter(r => !r.nc).length;
+  const countComEvidencia = registos.filter(r => (r.evidencia || '').trim().length > 0).length;
+  const countComObservacao = registos.filter(r => (r.om || '').trim().length > 0).length;
+  const countEvidenciaDetalhada = registos.filter(r => (r.evidencia || '').trim().length >= 40).length;
+  function pct(n) { return total ? Math.round((n/total)*100) : 0; }
+
+  const riscoScore = total ? ((countNC * 1) + (countOM * 0.5)) / total : 0;
+  const riscoNivel = riscoScore >= 0.35 ? 'ALTO' : riscoScore >= 0.18 ? 'MÉDIO' : 'CONTROLADO';
+  const riscoCor = riscoNivel === 'ALTO' ? 'var(--rose)' : riscoNivel === 'MÉDIO' ? 'var(--amber)' : 'var(--emerald)';
+
+  let leituraExecutiva = '';
+  if (countNC > 0) {
+    leituraExecutiva = `Foram identificadas ${countNC} NC e ${countOM} OM, exigindo plano de ação prioritário.`;
+  } else if (countOM > 0) {
+    leituraExecutiva = `Sem NC registadas, mas com ${countOM} OM que indicam oportunidade clara de melhoria.`;
+  } else {
+    leituraExecutiva = 'Resultado estável: sem NC/OM relevantes e bom nível de conformidade.';
+  }
+
+  if (countBlank > 0) {
+    leituraExecutiva += ` Existem ${countBlank} registos sem classificação NC.`;
+  }
+
+  const itensNaoConformes = registos.filter(r => r.nc === 'NC' || r.nc === 'OM');
+
+  const prioridades = itensNaoConformes
+    .slice(0, 3)
+    .map(r => r.investigacao || r.foco || 'Item sem descrição');
+
+  const prioridadesHTML = prioridades.length
+    ? `<ul style="margin:.5rem 0 0 1rem;color:var(--slate700);font-size:12px;line-height:1.5">${prioridades.map(p => `<li>${p}</li>`).join('')}</ul>`
+    : `<div style="font-size:12px;color:var(--slate500);margin-top:.5rem">Sem itens críticos para priorização imediata.</div>`;
+
+  const acoesEspecificas = itensNaoConformes.map(r => {
+    const tema = (r.investigacao || r.foco || 'item sem descrição').trim();
+    const evidenciaPreenchida = (r.evidencia || '').trim().length > 0;
+    const omPreenchida = (r.om || '').trim().length > 0;
+
+    if (r.nc === 'NC') {
+      if (!evidenciaPreenchida) {
+        return `Corrigir a NC em "${tema}", recolher evidência objetiva e validar eficácia da correção.`;
+      }
+      return `Implementar ação corretiva para a NC em "${tema}" com responsável, prazo e verificação de eficácia.`;
+    }
+
+    if (!omPreenchida) {
+      return `Definir ação preventiva para a OM em "${tema}" e documentar a observação para acompanhamento.`;
+    }
+    return `Tratar a OM em "${tema}" com ação de melhoria e monitorizar para prevenir recorrência.`;
+  });
+
+  const acoes = [];
+  if (riscoNivel === 'ALTO') {
+    acoes.push('Abrir plano de ação em 24h para todas as NC, com responsável e prazo.');
+    acoes.push('Executar reunião de contenção com o departamento para tratar causas-raiz.');
+  } else if (riscoNivel === 'MÉDIO') {
+    acoes.push('Priorizar fechamento das NC e OM críticas em até 7 dias.');
+    acoes.push('Validar eficácia das ações corretivas na próxima revisão interna.');
+  } else {
+    acoes.push('Manter controles atuais e reforçar pontos fortes identificados.');
+  }
+
+  if (countBlank > 0) {
+    acoes.push(`Classificar os ${countBlank} registos em branco antes do encerramento da auditoria.`);
+  }
+  if (countComEvidencia < total) {
+    acoes.push('Completar evidências em falta para garantir rastreabilidade de constatações.');
+  }
+  if (countOM > 0 && countNC === 0) {
+    acoes.push('Converter OM recorrentes em plano preventivo para evitar evolução para NC.');
+  }
+
+  const acoesConsolidadas = [...acoesEspecificas, ...acoes]
+    .filter((acao, i, arr) => arr.indexOf(acao) === i)
+    .slice(0, 8);
+
+  const acoesHTML = acoesConsolidadas.length
+    ? `<ul style="margin:.5rem 0 0 1rem;color:var(--slate700);font-size:12px;line-height:1.5">${acoesConsolidadas.map(a => `<li>${a}</li>`).join('')}</ul>`
+    : `<div style="font-size:12px;color:var(--slate500);margin-top:.5rem">Sem ações sugeridas, pois não existem NC/OM neste relatório.</div>`;
+
+  const insightsHTML = `
+    <div style="background:var(--slate50);border-radius:10px;padding:1.5rem;margin-bottom:2rem;box-shadow:0 2px 8px #0001">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.9rem">
+        <div style="font-weight:700;font-size:15px;color:var(--slate700)">Smart Analysis</div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:.04em;color:${riscoCor}">NÍVEL DE RISCO: ${riscoNivel}</div>
+      </div>
+
+      <div style="font-size:12px;color:var(--slate700);margin-bottom:1rem">${leituraExecutiva}</div>
+
+      <div style="display:flex;gap:1.6rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div><span style="font-weight:700;color:var(--slate600)">${total}</span> questões</div>
+        <div><span class="tog t-ok" style="padding:.2rem .7rem;font-size:12px">OK</span> ${countOK} (${pct(countOK)}%)</div>
+        <div><span class="tog t-om" style="padding:.2rem .7rem;font-size:12px">OM</span> ${countOM} (${pct(countOM)}%)</div>
+        <div><span class="tog t-nc" style="padding:.2rem .7rem;font-size:12px">NC</span> ${countNC} (${pct(countNC)}%)</div>
+        <div><span style="color:var(--slate400);font-size:12px">Em branco:</span> ${countBlank}</div>
+      </div>
+
+      <div style="display:flex;gap:2rem;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--slate600)">
+          <div style="font-weight:700;color:var(--slate700);margin-bottom:.25rem">Qualidade dos registos</div>
+          <div>Evidência preenchida: ${countComEvidencia}/${total} (${pct(countComEvidencia)}%)</div>
+          <div>Evidência detalhada: ${countEvidenciaDetalhada}/${total} (${pct(countEvidenciaDetalhada)}%)</div>
+          <div>Observação OM preenchida: ${countComObservacao}/${total} (${pct(countComObservacao)}%)</div>
+        </div>
+        <div style="min-width:280px;flex:1">
+          <div style="font-weight:700;font-size:12px;color:var(--slate700)">Prioridades sugeridas</div>
+          ${prioridadesHTML}
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--slate200)">
+        <div style="font-weight:700;font-size:12px;color:var(--slate700)">Ações sugeridas</div>
+        ${acoesHTML}
+      </div>
+    </div>
+  `;
 
   detalhe.innerHTML = `
     <div class="report-head">
       <div>
         <div class="report-title">RELATÓRIO DE AUDITORIA</div>
         <div style="font-size:9px;color:var(--slate400);margin-top:.5rem;text-transform:uppercase;font-weight:900">Departamento</div>
+        <div style="margin-top:1rem;font-size:12px;color:var(--slate600);line-height:1.7">
+          <div><strong>Auditor Coordenador:</strong> ${auditorCoord}</div>
+          <div><strong>Auditor:</strong> ${auditor}</div>
+          <div><strong>Auditado:</strong> ${auditado}</div>
+          <div><strong>Registado Por:</strong> ${registadoPor}</div>
+          <div><strong>Data:</strong> ${dataRelatorio}</div>
+        </div>
       </div>
       <div>
         <div class="report-dept-badge">${dept}</div>
         <div style="font-size:10px;color:var(--slate500);margin-top:.5rem;text-align:right">${auditId}</div>
       </div>
     </div>
+    ${insightsHTML}
     <div style="margin-bottom:2rem">
       ${registos.map(r => {
         const ncTag = r.nc
@@ -1064,6 +1443,16 @@ function iniciarAuditoria(dept) {
   ncSelecionados = {};
   document.getElementById('audit-title').textContent = DEPARTAMENTOS[dept];
   document.getElementById('audit-desc').textContent = dept;
+
+  const introMaisRecente = [...dados.introPlaneamentos]
+    .reverse()
+    .find(i => i.departamento === dept);
+
+  document.getElementById('execAuditorCoord').value = introMaisRecente?.auditorCoord || '';
+  document.getElementById('execAuditor').value = introMaisRecente?.auditor || '';
+  document.getElementById('execAuditado').value = introMaisRecente?.auditado || '';
+  document.getElementById('execRegistadoPor').value = introMaisRecente?.registadoPor || '';
+
   renderQuestoesPorDept();
   goTo('auditoria');
 }
@@ -1115,6 +1504,17 @@ function setNC(qid, tipo, btn) {
 async function finalizarAuditoria() {
   const questoes = dados.questoes.filter(q => q.departamento === deptAtual);
   const registos = [];
+  const dataRegisto = new Date().toISOString().split('T')[0];
+
+  const auditorCoord = (document.getElementById('execAuditorCoord')?.value || '').trim();
+  const auditor = (document.getElementById('execAuditor')?.value || '').trim();
+  const auditado = (document.getElementById('execAuditado')?.value || '').trim();
+  const registadoPor = (document.getElementById('execRegistadoPor')?.value || '').trim();
+
+  if (!auditorCoord || !auditor || !auditado || !registadoPor) {
+    alert('Preencha os campos obrigatórios do cabeçalho: Auditor Coordenador, Auditor, Auditado e Registado Por.');
+    return;
+  }
   
   // Gerar ID único da auditoria baseado na data
   const agora = new Date();
@@ -1135,7 +1535,12 @@ async function finalizarAuditoria() {
       foco: q.foco,
       evidencia: document.getElementById('ev_' + q.id).value,
       om: document.getElementById('om_' + q.id).value,
-      nc: nc
+      nc: nc,
+      auditorCoord,
+      auditor,
+      auditado,
+      registadoPor,
+      data: dataRegisto
     });
   });
   
@@ -1150,6 +1555,13 @@ async function finalizarAuditoria() {
       <div>
         <div class="report-title">RELATÓRIO DE AUDITORIA</div>
         <div style="font-size:9px;color:var(--slate400);margin-top:.5rem;text-transform:uppercase;font-weight:900">Departamento</div>
+        <div style="margin-top:1rem;font-size:12px;color:var(--slate600);line-height:1.7">
+          <div><strong>Auditor Coordenador:</strong> ${auditorCoord}</div>
+          <div><strong>Auditor:</strong> ${auditor}</div>
+          <div><strong>Auditado:</strong> ${auditado}</div>
+          <div><strong>Registado Por:</strong> ${registadoPor}</div>
+          <div><strong>Data:</strong> ${dataRegisto}</div>
+        </div>
       </div>
       <div class="report-dept-badge">${deptAtual}</div>
     </div>
@@ -1173,7 +1585,7 @@ async function finalizarAuditoria() {
   `;
   
   document.getElementById('rel-content').innerHTML = reportHtml;
-  goTo('relatorio');
+  goHome();
 }
 
 // DADOS

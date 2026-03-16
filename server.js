@@ -88,14 +88,19 @@ app.post('/salvarAuditoria', async (req, res) => {
       registo.foco,
       registo.evidencia,
       registo.om,
-      registo.nc
+      registo.nc,
+      registo.auditorCoord,
+      registo.auditor,
+      registo.auditado,
+      registo.registadoPor,
+      registo.data
     ]);
     
     // Inserir dados na folha AUDITORIA
     const response = await sheets.spreadsheets.values.append({
       auth,
       spreadsheetId,
-      range: 'AUDITORIA!A:G',
+      range: 'AUDITORIA!A:L',
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: values
