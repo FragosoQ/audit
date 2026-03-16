@@ -37,7 +37,8 @@
 body{font-family:'DM Sans',sans-serif;background:radial-gradient(circle,rgb(134, 132, 132) 0%, rgba(0, 0, 0, 0.94) 100%);color:var(--slate900);min-height:100vh;font-size:14px;line-height:1.5}
 
 /* HEADER */
-.header{background:var(--slate900);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header{background:var(--slate900);position:sticky;top:0;z-index:100}
+.header-inner{position:relative;display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2rem}
 .header-left{display:flex;align-items:center}
 .header-right{display:flex;align-items:center}
 .header-center-logo{position:absolute;left:50%;transform:translateX(-50%);height:36px;pointer-events:none}
@@ -241,6 +242,10 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
   .sign-grid{grid-template-columns:1fr}
   .container{padding:1.5rem 1rem}
   .plan-grid,.plan-week{grid-template-columns:repeat(2,1fr)}
+  .header-inner{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:.5rem .5rem;padding:1rem 1.25rem}
+  .header-center-logo{position:static;transform:none;height:30px;grid-column:1;grid-row:1;align-self:center;justify-self:start}
+  .header-left{grid-column:1;grid-row:2;justify-content:flex-start}
+  .header-right{grid-column:2;grid-row:1;justify-content:flex-end}
 }
 @media print{
   .no-print{display:none!important}
@@ -260,6 +265,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 
 <!-- HEADER -->
 <header class="header">
+<div class="header-inner">
   <div class="header-left">
     <div class="logo" onclick="goHome()">
       <div class="logo-icon" aria-hidden="true"></div>
@@ -276,6 +282,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
       Painel Principal
     </button>
   </div>
+</div>
 </header>
 
 <!-- DASHBOARD -->
