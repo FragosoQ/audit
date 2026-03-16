@@ -13,10 +13,12 @@
 function doPost(e) {
   try {
     let data;
+    const contentType = (e.postData && e.postData.type ? e.postData.type : '').toLowerCase();
+    const contents = e.postData && e.postData.contents ? e.postData.contents : '';
     
     // Lidar com JSON ou form data
-    if (e.postData.type === 'application/json') {
-      data = JSON.parse(e.postData.contents);
+    if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+      data = JSON.parse(contents);
     } else if (e.parameter.data) {
       // Dados vindos de um formulário
       data = JSON.parse(e.parameter.data);
@@ -61,46 +63,79 @@ function doGet(e) {
       Logger.log('Iniciando obtenção de questões...');
       const questoes = obterQuestoes(spreadsheet);
       Logger.log('Questões obtidas:', JSON.stringify(questoes));
-      
-      const response = ContentService.createTextOutput(JSON.stringify(questoes))
+      return ContentService.createTextOutput(JSON.stringify(questoes))
         .setMimeType(ContentService.MimeType.JSON);
-      
-      // Adicionar headers CORS
-      response.setHeader('Access-Control-Allow-Origin', '*');
-      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-      response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      response.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      
-      return response;
+    } else if (operacao === 'obterAuditorias') {
+      Logger.log('Iniciando obtenção de auditorias...');
+      const auditorias = obterAuditorias(spreadsheet);
+      Logger.log('Auditorias obtidas:', JSON.stringify(auditorias));
+      return ContentService.createTextOutput(JSON.stringify(auditorias))
+        .setMimeType(ContentService.MimeType.JSON);
     }
     
     Logger.log('Operação desconhecida:', operacao);
     return ContentService.createTextOutput(JSON.stringify({ erro: 'Operação desconhecida: ' + operacao }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
+      .setMimeType(ContentService.MimeType.JSON);
       
   } catch (erro) {
     Logger.log('ERRO em doGet:', erro.toString());
     Logger.log('Stack:', erro.stack);
-    
-    const response = ContentService.createTextOutput(JSON.stringify({ 
+    return ContentService.createTextOutput(JSON.stringify({ 
       erro: erro.message,
       stack: erro.toString()
-    }))
-      .setMimeType(ContentService.MimeType.JSON);
-    
-    response.setHeader('Access-Control-Allow-Origin', '*');
-    return response;
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Obter todos os registos da folha AUDITORIA
+function obterAuditorias(spreadsheet) {
+  try {
+    Logger.log('=== Iniciando obterAuditorias ===');
+
+    const sheet = spreadsheet.getSheetByName('AUDITORIA');
+    if (!sheet) {
+      Logger.log('❌ Sheet AUDITORIA não encontrado');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    Logger.log('Dimensões AUDITORIA: ' + lastRow + ' linhas x ' + lastCol + ' colunas');
+
+    if (lastRow <= 1) {
+      Logger.log('Sheet AUDITORIA vazio ou só com headers');
+      return [];
+    }
+
+    const values = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 7)).getValues();
+    const registos = [];
+
+    values.forEach((row) => {
+      const temDados = row.some(cell => cell !== null && cell !== '');
+      if (!temDados) return;
+
+      registos.push({
+        id: String(row[0] || ''),
+        departamento: String(row[1] || ''),
+        investigacao: String(row[2] || ''),
+        foco: String(row[3] || ''),
+        evidencia: String(row[4] || ''),
+        om: String(row[5] || ''),
+        nc: String(row[6] || '')
+      });
+    });
+
+    Logger.log('✅ Total de registos AUDITORIA:', registos.length);
+    return registos;
+  } catch (erro) {
+    Logger.log('❌ ERRO em obterAuditorias: ' + erro.toString());
+    return [];
   }
 }
 
 function doOptions(e) {
-  return ContentService.createTextOutput()
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    .setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 // Adicionar auditoria planeada à folha INTRO

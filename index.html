@@ -278,6 +278,13 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
         <p>Visualize as questões de auditoria organizadas por departamento.</p>
         <div class="menu-card-cta">Ver detalhes <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 4l4 4-4 4"/></svg></div>
       </div>
+      <div class="menu-card card-slate" onclick="goTo('relatorios')">
+        <div class="menu-card-bg"></div>
+        <div class="menu-card-icon">📊</div>
+        <h2>Relatórios Realizados</h2>
+        <p>Consulte auditorias concluídas carregadas do separador AUDITORIA.</p>
+        <div class="menu-card-cta">Abrir histórico <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 4l4 4-4 4"/></svg></div>
+      </div>
     </div>
   </div>
 </div>
@@ -488,6 +495,22 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
   </div>
 </div>
 
+<!-- RELATÓRIOS REALIZADOS -->
+<div class="view" id="view-relatorios">
+  <div class="container">
+    <div class="page-header">
+      <h2>Relatórios Realizados</h2>
+      <p>Histórico carregado da folha AUDITORIA</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-dark" onclick="carregarEExibirRelatoriosRealizados()">↻ Recarregar do Sheet</button>
+    </div>
+    <div id="relatorios-lista"></div>
+    <div id="relatorios-empty" class="empty-state" style="display:none"><div class="ei">📄</div><p>Nenhum relatório encontrado no separador AUDITORIA.</p></div>
+    <div class="report-wrap" id="rel-realizado-content" style="display:none;margin-top:1.25rem"></div>
+  </div>
+</div>
+
 <!-- RELATÓRIO -->
 <div class="view" id="view-relatorio">
   <div class="container">
@@ -500,7 +523,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 </div>
 
 <script>
-const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMY7vVznq4MTxJWaGUDM-klZsdknix40t-SlWIhhXfoh3pjTrsfZvLELgQn_GgEm09/exec';
+const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlveT3-pLZYUC4696Q2xs4_qRQdyhSWqUQIdMJsTgkmVEHHOCnoZx0DoOyXnnqgdo-/exec';
 
 const DEPARTAMENTOS = {
   'DCO': 'Compras',
@@ -537,6 +560,7 @@ let dados = {
 
 let deptAtual = null;
 let deptFilterSelected = null; // Para filtro na view registos
+let relatoriosSheet = [];
 
 function goHome() { goTo('menu'); }
 function goTo(view) {
@@ -554,6 +578,7 @@ function goTo(view) {
     deptFilterSelected = null; // Reset filter
     renderInvestigacoes();
   }
+  if (view === 'relatorios') carregarEExibirRelatoriosRealizados();
 }
 
 // PLANEAMENTO
@@ -665,9 +690,9 @@ function abrirModalAdicionarPorDepto(dept) {
 function closeQuestModal() { document.getElementById('quest-modal').classList.remove('open'); }
 
 function renderQuestoes() {
-  const container = document.getElementById('listaQuestoes');
+  const container = document.getElementById('listaQuestoes') || document.getElementById('inv-grid');
   if (!container) {
-    console.log('Contenedor listaQuestoes não encontrado');
+    console.warn('Container de questões não encontrado nesta view.');
     return;
   }
   
@@ -780,7 +805,6 @@ async function adicionarQuestao(e) {
   
   document.getElementById('formQuestao').reset();
   closeQuestModal();
-  renderQuestoes();
   renderInvestigacoes();
   alert(`✅ Questão "${novoId}" adicionada com sucesso!`);
 }
@@ -908,8 +932,136 @@ function exportarInvestigacoes() {
   alert('✅ Investigações exportadas com sucesso!');
 }
 
+async function carregarAuditoriasDoSheet() {
+  try {
+    const url = APPSCRIPT_URL + '?operacao=obterAuditorias&_t=' + Date.now();
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache'
+    });
+
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const dadosResposta = await response.json();
+    return Array.isArray(dadosResposta) ? dadosResposta : [];
+  } catch (e) {
+    console.warn('Erro ao carregar auditorias do sheet:', e.message);
+    return [];
+  }
+}
+
+function agruparAuditoriasPorId(registos) {
+  const grupos = {};
+  registos.forEach(r => {
+    const id = r.id || 'SEM-ID';
+    if (!grupos[id]) {
+      grupos[id] = {
+        id,
+        departamento: r.departamento || '—',
+        itens: []
+      };
+    }
+    grupos[id].itens.push(r);
+  });
+  return Object.values(grupos).sort((a, b) => (a.id < b.id ? 1 : -1));
+}
+
+function formatarDataAuditId(auditId) {
+  const m = /^AUD-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(auditId || '');
+  if (!m) return '—';
+  return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]}`;
+}
+
+async function carregarEExibirRelatoriosRealizados() {
+  const lista = document.getElementById('relatorios-lista');
+  const empty = document.getElementById('relatorios-empty');
+  const detalhe = document.getElementById('rel-realizado-content');
+
+  lista.innerHTML = '<div class="empty-state"><div class="ei">⏳</div><p>A carregar relatórios...</p></div>';
+  detalhe.style.display = 'none';
+
+  relatoriosSheet = await carregarAuditoriasDoSheet();
+  const auditorias = agruparAuditoriasPorId(relatoriosSheet);
+
+  if (!auditorias.length) {
+    lista.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  lista.innerHTML = `
+    <div class="card table-wrap">
+      <table class="main-table">
+        <thead>
+          <tr>
+            <th>ID Auditoria</th>
+            <th>Departamento</th>
+            <th>Data/Hora</th>
+            <th>Itens</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${auditorias.map(a => `
+            <tr>
+              <td>${a.id}</td>
+              <td>${a.departamento}</td>
+              <td>${formatarDataAuditId(a.id)}</td>
+              <td>${a.itens.length}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="verRelatorioRealizado('${a.id}')">Ver</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function verRelatorioRealizado(auditId) {
+  const detalhe = document.getElementById('rel-realizado-content');
+  const registos = relatoriosSheet.filter(r => r.id === auditId);
+  if (!registos.length) return;
+
+  const dept = registos[0].departamento || '—';
+
+  detalhe.innerHTML = `
+    <div class="report-head">
+      <div>
+        <div class="report-title">RELATÓRIO DE AUDITORIA</div>
+        <div style="font-size:9px;color:var(--slate400);margin-top:.5rem;text-transform:uppercase;font-weight:900">Departamento</div>
+      </div>
+      <div>
+        <div class="report-dept-badge">${dept}</div>
+        <div style="font-size:10px;color:var(--slate500);margin-top:.5rem;text-align:right">${auditId}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:2rem">
+      ${registos.map(r => {
+        const ncTag = r.nc
+          ? `<span class="tog t-${r.nc === 'OM' ? 'om' : r.nc === 'NC' ? 'nc' : 'ok'}" style="padding:.4rem .8rem;font-size:11px">${r.nc}</span>`
+          : `<span style="font-size:11px;color:var(--slate400);font-weight:700">—</span>`;
+
+        return `
+          <div style="padding:1.5rem 0;border-bottom:1px solid var(--slate100)">
+            <div style="font-weight:700;margin-bottom:.5rem">${r.investigacao || '—'}</div>
+            <div style="font-size:12px;color:var(--slate500);margin-bottom:1rem">${r.foco || '—'}</div>
+            <div style="padding:.75rem;background:var(--slate50);border-radius:8px;font-size:12px;color:var(--slate600);margin-bottom:.5rem">${r.evidencia || '—'}</div>
+            <div style="padding:.75rem;background:var(--slate50);border-radius:8px;font-size:12px;color:var(--slate600);margin-bottom:.75rem">${r.om || '—'}</div>
+            <div style="display:flex;gap:1rem">${ncTag}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  detalhe.style.display = 'block';
+}
+
 function iniciarAuditoria(dept) {
   deptAtual = dept;
+  ncSelecionados = {};
   document.getElementById('audit-title').textContent = DEPARTAMENTOS[dept];
   document.getElementById('audit-desc').textContent = dept;
   renderQuestoesPorDept();
@@ -975,7 +1127,7 @@ async function finalizarAuditoria() {
   const auditId = `AUD-${ano}${mes}${dia}-${hora}${minuto}${segundo}`;
   
   questoes.forEach(q => {
-    const nc = ncSelecionados[q.id] || 'OK';
+    const nc = ncSelecionados[q.id] || '';
     registos.push({
       id: auditId,
       departamento: deptAtual,
@@ -1043,10 +1195,6 @@ async function carregarQuestoesDoSheet() {
     console.log('Fazendo fetch...');
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
       mode: 'cors',
       cache: 'no-cache'
     });
@@ -1180,13 +1328,11 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('Resultado do carregamento:', questoes);
       if (questoes && questoes.length > 0) {
         console.log('✅ Questões carregadas do Sheet com sucesso!');
-        renderQuestoes();
         renderDeptos();
         renderInvestigacoes();
       } else {
         console.log('Sheet vazio ou erro, carregando pré-definidas...');
         importarQuestoesPredefinidas().then(() => {
-          renderQuestoes();
           renderDeptos();
           renderInvestigacoes();
         });
@@ -1194,7 +1340,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   } else {
     console.log('Questões já em cache, renderizando...');
-    renderQuestoes();
     renderDeptos();
     renderInvestigacoes();
   }

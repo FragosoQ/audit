@@ -29,9 +29,9 @@ Este é o passo **CRÍTICO** para funcionar:
    - Executar como: [sua conta Google]
    - Quem tem acesso: **"Qualquer Um"** ⚠️ IMPORTANTE!
 7. Copie o **novo URL de deployment**
-8. Em [index.html](../index.html) linha ~476, atualize:
+8. Em [index.html](index.html) linha ~503, confirme/atualize:
    ```javascript
-   const APPSCRIPT_URL = '[NOVO_URL_AQUI]';
+     const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlveT3-pLZYUC4696Q2xs4_qRQdyhSWqUQIdMJsTgkmVEHHOCnoZx0DoOyXnnqgdo-/exec';
    ```
 
 ---
