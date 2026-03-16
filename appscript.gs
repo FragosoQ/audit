@@ -67,6 +67,12 @@ function doGet(e) {
       Logger.log('Questões obtidas:', JSON.stringify(questoes));
       return ContentService.createTextOutput(JSON.stringify(questoes))
         .setMimeType(ContentService.MimeType.JSON);
+    } else if (operacao === 'obterIntro') {
+      Logger.log('Iniciando obtenção de planeamentos INTRO...');
+      const planeamentos = obterPlaneamentosIntro(spreadsheet);
+      Logger.log('Planeamentos INTRO obtidos:', JSON.stringify(planeamentos));
+      return ContentService.createTextOutput(JSON.stringify(planeamentos))
+        .setMimeType(ContentService.MimeType.JSON);
     } else if (operacao === 'obterAuditorias') {
       Logger.log('Iniciando obtenção de auditorias...');
       const auditorias = obterAuditorias(spreadsheet);
@@ -164,6 +170,98 @@ function obterAuditorias(spreadsheet) {
 function doOptions(e) {
   return ContentService.createTextOutput('')
     .setMimeType(ContentService.MimeType.TEXT);
+}
+
+function obterPlaneamentosIntro(spreadsheet) {
+  try {
+    Logger.log('=== Iniciando obterPlaneamentosIntro ===');
+
+    const sheet = spreadsheet.getSheetByName('INTRO');
+    if (!sheet) {
+      Logger.log('❌ Sheet INTRO não encontrado');
+      return [];
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    Logger.log('Dimensões INTRO: ' + lastRow + ' linhas x ' + lastCol + ' colunas');
+
+    if (lastRow <= 1) {
+      Logger.log('Sheet INTRO vazio ou só com headers');
+      return [];
+    }
+
+    const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim().toLowerCase());
+    const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    const col = (aliases, fallbackIndex) => {
+      const idx = headerRow.findIndex(h => aliases.includes(h));
+      return idx >= 0 ? idx : fallbackIndex;
+    };
+
+    const idxId = col(['id'], 0);
+    const idxDepartamento = col(['departamento'], 1);
+    const idxAuditorCoord = col(['auditor coordenador'], 2);
+    const idxAuditor = col(['auditor'], 3);
+    const idxAuditado = col(['auditado'], 4);
+    const idxDocumentosRef = col(['documentos de referência da empresa', 'documentos de referencia da empresa'], 5);
+    const idxRegistadoPor = col(['registado por'], 6);
+    const idxColaboradores = col(['colaboradores contactados'], 7);
+    const idxRequisitos = col(['requisitos'], 8);
+    const idxDataAuditoria = col(['data de auditoria'], 9);
+    const idxHoraPrevista = col(['hora prevista'], 10);
+    const idxHoraAuditoria = col(['hora da auditoria'], 11);
+    const idxRealizada = col(['realizada'], 12);
+    const idxDataRealizacao = col(['data realização', 'data realizacao'], 13);
+
+    const valor = (row, idx) => (idx >= 0 ? String(row[idx] || '').trim() : '');
+
+    // Formatar campos de data: o Sheets pode entregar objetos Date em vez de texto
+    const formatarDataYMD = (raw) => {
+      if (!raw) return '';
+      if (raw instanceof Date && !isNaN(raw.getTime())) {
+        const y = raw.getFullYear();
+        const m = String(raw.getMonth() + 1).padStart(2, '0');
+        const d = String(raw.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+      }
+      // Já é texto — garantir só YYYY-MM-DD (sem hora)
+      return String(raw).trim().substring(0, 10);
+    };
+
+    const planeamentos = [];
+
+    values.forEach((row) => {
+      const id = valor(row, idxId);
+      if (!id) return;
+
+      const realizadaTexto = valor(row, idxRealizada).toUpperCase();
+      const rawData = idxDataAuditoria >= 0 ? row[idxDataAuditoria] : '';
+
+      planeamentos.push({
+        id,
+        departamento: valor(row, idxDepartamento),
+        auditorCoord: valor(row, idxAuditorCoord),
+        auditor: valor(row, idxAuditor),
+        auditado: valor(row, idxAuditado),
+        documentosRef: valor(row, idxDocumentosRef),
+        registadoPor: valor(row, idxRegistadoPor),
+        colaboradores: valor(row, idxColaboradores),
+        requisitos: valor(row, idxRequisitos),
+        dataAuditoria: formatarDataYMD(rawData),
+        horaPrevista: valor(row, idxHoraPrevista),
+        horaAuditoria: valor(row, idxHoraAuditoria),
+        realizada: realizadaTexto === 'SIM' || realizadaTexto === 'TRUE' || realizadaTexto === '1',
+        dataRealizacao: valor(row, idxDataRealizacao)
+      });
+    });
+
+    Logger.log('✅ Total de planeamentos INTRO: ' + planeamentos.length);
+    return planeamentos;
+  } catch (erro) {
+    Logger.log('❌ ERRO em obterPlaneamentosIntro: ' + erro.toString());
+    return [];
+  }
 }
 
 // Adicionar auditoria planeada à folha INTRO

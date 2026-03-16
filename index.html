@@ -582,7 +582,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 </div>
 
 <script>
-const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFIKdU4JI7tMZ9L1DpcgcnjerWCDle46FGEh157eT2V9urrOgz8J7yZc_HuT2RJuuQ/exec';
+const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMnfMW2ZLEyjeODD0h3ZjJkuL4S-dW73pRnjQBpZqW2ADVynYewTwjfCAGYs-vSW-U/exec';
 
 const DEPARTAMENTOS = {
   'DCO': 'Compras',
@@ -1602,6 +1602,52 @@ function carregarDados() {
   if (stored) dados = JSON.parse(stored);
 }
 
+function normalizarPlaneamentoIntro(intro) {
+  // Garantir que dataAuditoria é sempre YYYY-MM-DD puro (sem componente de hora)
+  const dataAuditoria = (intro.dataAuditoria || '').substring(0, 10);
+  return {
+    id: intro.id || '',
+    departamento: intro.departamento || '',
+    auditorCoord: intro.auditorCoord || '',
+    auditor: intro.auditor || '',
+    auditado: intro.auditado || '',
+    documentosRef: intro.documentosRef || '',
+    registadoPor: intro.registadoPor || '',
+    colaboradores: intro.colaboradores || '',
+    requisitos: intro.requisitos || '',
+    horaPrevista: intro.horaPrevista || '',
+    horaAuditoria: intro.horaAuditoria || '',
+    dataAuditoria,
+    realizada: intro.realizada === true,
+    dataRealizacao: typeof intro.dataRealizacao === 'string' ? intro.dataRealizacao : ''
+  };
+}
+
+async function carregarPlaneamentosDoSheet() {
+  try {
+    const url = APPSCRIPT_URL + '?operacao=obterIntro&_t=' + Date.now();
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache'
+    });
+
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const planeamentos = await response.json();
+
+    if (!Array.isArray(planeamentos)) {
+      throw new Error('Resposta inválida ao carregar INTRO');
+    }
+
+    dados.introPlaneamentos = planeamentos.map(normalizarPlaneamentoIntro);
+    guardarDados();
+    return dados.introPlaneamentos;
+  } catch (e) {
+    console.warn('Erro ao carregar planeamentos do sheet INTRO:', e.message);
+    return null;
+  }
+}
+
 // Carregar questões do Google Sheet REGISTOS
 async function carregarQuestoesDoSheet() {
   console.log('=== INICIANDO CARREGAMENTO DO SHEET ===');
@@ -1734,40 +1780,49 @@ async function importarQuestoesPredefinidas() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   console.log('DOMContentLoaded - Iniciando aplicação');
   carregarDados();
   console.log('Dados carregados do localStorage:', dados);
   console.log('Número de questões:', dados.questoes ? dados.questoes.length : 0);
+
+  const planeamentos = await carregarPlaneamentosDoSheet();
+  if (planeamentos === null) {
+    dados.introPlaneamentos = Array.isArray(dados.introPlaneamentos)
+      ? dados.introPlaneamentos.map(normalizarPlaneamentoIntro)
+      : [];
+  }
   
   // Se não há questões, tenta carregar do sheet PRIMEIRO
   if (!dados.questoes || dados.questoes.length === 0) {
     console.log('Sem questões em cache, tentando carregar do Google Sheet...');
-    carregarQuestoesDoSheet().then((questoes) => {
-      console.log('Resultado do carregamento:', questoes);
-      if (questoes && questoes.length > 0) {
-        console.log('✅ Questões carregadas do Sheet com sucesso!');
-        renderDeptos();
-        renderInvestigacoes();
-      } else {
-        console.log('Sheet vazio ou erro, carregando pré-definidas...');
-        importarQuestoesPredefinidas().then(() => {
-          renderDeptos();
-          renderInvestigacoes();
-        });
-      }
-    });
+    const questoes = await carregarQuestoesDoSheet();
+    console.log('Resultado do carregamento:', questoes);
+    if (questoes && questoes.length > 0) {
+      console.log('✅ Questões carregadas do Sheet com sucesso!');
+    } else {
+      console.log('Sheet vazio ou erro, carregando pré-definidas...');
+      await importarQuestoesPredefinidas();
+    }
   } else {
     console.log('Questões já em cache, renderizando...');
-    renderDeptos();
-    renderInvestigacoes();
   }
+
+  renderPlaneamentos();
+  renderDeptos();
+  renderInvestigacoes();
   
   // Exposer debug functions to window
   window.debugAddTestQuestions = adicionarTestecnicas;
   window.debugShowData = () => console.log('Dados atuais:', dados);
   window.debugClear = () => { dados.questoes = []; guardarDados(); location.reload(); };
-  window.debugRecarregar = () => carregarQuestoesDoSheet().then(() => { renderQuestoes(); renderDeptos(); });
+  window.debugRecarregar = async () => {
+    await Promise.all([carregarPlaneamentosDoSheet(), carregarQuestoesDoSheet()]);
+    renderPlaneamentos();
+    renderQuestoes();
+    renderDeptos();
+    renderInvestigacoes();
+  };
   console.log('Funções de debug disponíveis: debugAddTestQuestions(), debugShowData(), debugClear(), debugRecarregar()');
 });
 </script>
