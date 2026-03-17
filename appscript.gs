@@ -397,7 +397,7 @@ function adicionarQuestao(spreadsheet, data) {
     
     // Headers esperados conforme especificado pelo utilizador
     const headers = [
-      'ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)', 'Foco / Requisito'
+      'ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)', 'Foco / Requisito', 'Categoria'
     ];
     
     // Verificar se headers existem
@@ -418,7 +418,8 @@ function adicionarQuestao(spreadsheet, data) {
       questionId,
       data.departamento,
       data.investigacao,
-      data.foco
+      data.foco,
+      data.categoria || ''
     ];
     
     for (let i = 0; i < valores.length; i++) {
@@ -453,7 +454,7 @@ function obterQuestoes(spreadsheet) {
     // Se sheet estiver vazio, criar headers
     if (lastRow === 0) {
       Logger.log('Sheet vazio, criando headers');
-      const headers = ['ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)', 'Foco / Requisito'];
+      const headers = ['ID', 'DEPARTAMENTO', 'Investigação (Questão de Auditoria)', 'Foco / Requisito', 'Categoria'];
       for (let i = 0; i < headers.length; i++) {
         sheet.getRange(1, i + 1).setValue(headers[i]);
       }
@@ -465,6 +466,18 @@ function obterQuestoes(spreadsheet) {
     const headerRange = sheet.getRange(1, 1, 1, lastCol);
     const headers = headerRange.getValues()[0];
     Logger.log('Headers:', JSON.stringify(headers));
+
+    const headerNorm = headers.map(h => String(h || '').trim().toLowerCase());
+    const col = (aliases, fallbackIndex) => {
+      const idx = headerNorm.findIndex(h => aliases.includes(h));
+      return idx >= 0 ? idx : fallbackIndex;
+    };
+
+    const idxId = col(['id'], 0);
+    const idxDepartamento = col(['departamento', 'departamento '], 1);
+    const idxInvestigacao = col(['investigação (questão de auditoria)', 'investigacao (questão de auditoria)', 'investigação', 'investigacao'], 2);
+    const idxFoco = col(['foco / requisito', 'foco/requisito', 'foco'], 3);
+    const idxCategoria = col(['categoria'], 4);
     
     // Se há apenas header (linha 1)
     if (lastRow === 1) {
@@ -486,10 +499,11 @@ function obterQuestoes(spreadsheet) {
       
       if (temDados) {
         const questao = {
-          id: String(row[0] || 'Q' + (rowIndex + 2)),
-          departamento: String(row[1] || ''),
-          investigacao: String(row[2] || ''),
-          foco: String(row[3] || '')
+          id: String(row[idxId] || 'Q' + (rowIndex + 2)),
+          departamento: String(row[idxDepartamento] || ''),
+          investigacao: String(row[idxInvestigacao] || ''),
+          foco: String(row[idxFoco] || ''),
+          categoria: String(row[idxCategoria] || '').trim()
         };
         
         Logger.log('Linha ' + (rowIndex + 2) + ':', JSON.stringify(questao));

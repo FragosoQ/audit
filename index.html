@@ -211,6 +211,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 
 /* FILTER DEPT */
 .filter-dept{display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:2rem;padding:1rem 0;border-bottom:1px solid var(--slate100)}
+.filter-categoria{display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:2rem;padding:1rem 0;border-bottom:1px solid var(--slate100)}
 .filter-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border-radius:12px;border:1.5px solid var(--slate200);background:var(--white);font-size:12px;font-weight:700;color:var(--slate600);cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
 .filter-btn[style]{border-color:var(--btn-color,var(--slate200));color:var(--btn-color,var(--slate600))}
 .filter-btn[style]:hover{border-color:var(--btn-color);background:var(--btn-light);color:var(--btn-color)}
@@ -479,6 +480,12 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
             <textarea id="focoRequisito" placeholder="Descreva o foco..."></textarea>
           </div>
         </div>
+        <div class="mform-grid full">
+          <div class="mfield">
+            <label>Categoria</label>
+            <input id="categoriaQuestao" type="text" placeholder="Ex: Processo, Produto, Documentação..." />
+          </div>
+        </div>
       </form>
     </div>
     <div class="modal-footer">
@@ -545,10 +552,29 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
     <div class="toolbar">
       <button class="btn btn-dark" onclick="abrirModalAdicionarPorDepto('')">+ Nova Investigação</button>
       <button class="btn btn-ghost" onclick="exportarInvestigacoes()">⬇ Exportar</button>
+      <button class="btn btn-ghost" id="btn-filtro-categoria" onclick="abrirModalFiltroCategoria()" style="display:none">🏷️ Filtrar por Categoria</button>
     </div>
     <div class="filter-dept" id="filter-dept"></div>
     <div class="inv-grid" id="inv-grid"></div>
     <div id="inv-empty" class="empty-state" style="display:none"><div class="ei">📋</div><p>Nenhuma investigação registada.</p></div>
+  </div>
+</div>
+
+<!-- MODAL: FILTRO DE CATEGORIAS -->
+<div class="modal-overlay" id="categoria-filter-modal" onclick="if(event.target === this) fecharModalFiltroCategoria()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>Filtrar por Categoria</h3>
+      <button class="modal-close" onclick="fecharModalFiltroCategoria()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="categoria-buttons-container" class="btn-group" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalFiltroCategoria()">Cancelar</button>
+      <button class="btn btn-dark" onclick="aplicarFiltroCategoria()">Aplicar Filtro</button>
+    </div>
   </div>
 </div>
 
@@ -582,7 +608,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 </div>
 
 <script>
-const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMnfMW2ZLEyjeODD0h3ZjJkuL4S-dW73pRnjQBpZqW2ADVynYewTwjfCAGYs-vSW-U/exec';
+const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxT2BfwdBivinCLxaP6c16Ih0rDtSxuI28plcKVaZbkXqsYnroVJnQwYt2k8S1uhnmN/exec';
 
 const DEPARTAMENTOS = {
   'DCO': 'Compras',
@@ -619,6 +645,7 @@ let dados = {
 
 let deptAtual = null;
 let deptFilterSelected = null; // Para filtro na view registos
+let categoriaFilterSelected = new Set(); // Para filtro de categorias
 let relatoriosSheet = [];
 let planeamentoMesRef = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
@@ -635,7 +662,8 @@ function goTo(view) {
   if (view === 'planeamento') renderPlaneamentos();
   if (view === 'selecionar') renderDeptos();
   if (view === 'registos') {
-    deptFilterSelected = null; // Reset filter
+    deptFilterSelected = null; // Reset department filter
+    categoriaFilterSelected.clear(); // Reset categoria filter
     renderInvestigacoes();
   }
   if (view === 'relatorios') carregarEExibirRelatoriosRealizados();
@@ -874,6 +902,7 @@ function openQuestModal() {
   document.getElementById('deptQuestao').value = '';
   document.getElementById('textoQuestao').value = '';
   document.getElementById('focoRequisito').value = '';
+  document.getElementById('categoriaQuestao').value = '';
   document.getElementById('quest-modal').classList.add('open'); 
 }
 
@@ -881,6 +910,7 @@ function abrirModalAdicionarPorDepto(dept) {
   document.getElementById('deptQuestao').value = dept;
   document.getElementById('textoQuestao').value = '';
   document.getElementById('focoRequisito').value = '';
+  document.getElementById('categoriaQuestao').value = '';
   document.getElementById('quest-modal').classList.add('open');
   document.getElementById('textoQuestao').focus();
 }
@@ -950,12 +980,15 @@ function renderQuestoes() {
               if (!q) return '';
               const texto = q.investigacao || q.questao || '[Sem texto]';
               const foco = q.foco || '';
+              const categoria = q.categoria || '';
+              const categoriaLabel = categoria ? `${emojiCategoria(categoria)} ${categoria}` : '';
               return `
               <div class="q-card">
                 <div class="q-header">
                   <div class="q-num">${q.id || '?'}</div>
                   <div class="q-text">${texto}</div>
                 </div>
+                ${categoriaLabel ? `<div class="q-foco">${categoriaLabel}</div>` : ''}
                 ${foco ? `<div class="q-foco">${foco}</div>` : ''}
               </div>
             `}).filter(Boolean).join('')}
@@ -977,6 +1010,7 @@ async function adicionarQuestao(e) {
   const dept = document.getElementById('deptQuestao').value;
   const texto = document.getElementById('textoQuestao').value;
   const foco = document.getElementById('focoRequisito').value;
+  const categoria = document.getElementById('categoriaQuestao').value;
   
   if (!dept || !texto) { alert('Preenche campos obrigatórios'); return; }
   
@@ -991,12 +1025,13 @@ async function adicionarQuestao(e) {
     id: novoId,
     departamento: dept,
     investigacao: texto,
-    foco: foco || 'Sem especificação'
+    foco: foco || 'Sem especificação',
+    categoria: (categoria || '').trim()
   };
   
   dados.questoes.push(novaQuestao);
   guardarDados();
-  await enviarParaAppScript('adicionarQuestao', { departamento: dept, investigacao: texto, foco });
+  await enviarParaAppScript('adicionarQuestao', { departamento: dept, investigacao: texto, foco, categoria });
   
   // Recarregar questões do sheet (tenta)
   await carregarQuestoesDoSheet();
@@ -1048,15 +1083,19 @@ function renderInvestigacoes() {
   
   // Agrupar por departamento
   const deptoMap = {};
+  const categoriasSet = new Set();
   dados.questoes.forEach(q => {
     if (!q.departamento) return;
     if (!deptoMap[q.departamento]) {
       deptoMap[q.departamento] = [];
     }
     deptoMap[q.departamento].push(q);
+    if (q.categoria) {
+      categoriasSet.add(q.categoria);
+    }
   });
   
-  // Renderizar botões de filtro COM CORES
+  // Renderizar botões de filtro por departamento COM CORES
   const deptList = Object.keys(deptoMap).sort();
   let filterHtml = '<button class="filter-btn' + (deptFilterSelected === null ? ' active' : '') + '" onclick="setDeptFilter(null)">Todos</button>';
   deptList.forEach(dept => {
@@ -1067,10 +1106,22 @@ function renderInvestigacoes() {
   });
   filterDept.innerHTML = filterHtml;
   
-  // Renderizar cards agrupados (com filtro e cores)
+  // Guardar as categorias disponíveis e renderizar o botão de filtro
+  const categoriasList = Array.from(categoriasSet).sort();
+  const btnFiltroCategoria = document.getElementById('btn-filtro-categoria');
+  if (categoriasList.length > 0) {
+    btnFiltroCategoria.style.display = 'inline-block';
+    // Guardar categorias no botão para uso posterior
+    btnFiltroCategoria.dataset.categorias = JSON.stringify(categoriasList);
+  } else {
+    btnFiltroCategoria.style.display = 'none';
+  }
+  
+  // Renderizar cards agrupados (com filtros de dept e categoria e cores)
   let html = '';
+  let hasVisibleCards = false;
   Object.keys(deptoMap).sort().forEach(dept => {
-    // Se temos filtro, pula os departamentos que não são o filtrado
+    // Se temos filtro de dept, pula os departamentos que não são o filtrado
     if (deptFilterSelected !== null && dept !== deptFilterSelected) {
       return;
     }
@@ -1078,12 +1129,20 @@ function renderInvestigacoes() {
     const investigacoes = deptoMap[dept];
     const cores = CORES_DEPARTAMENTOS[dept];
     investigacoes.forEach(inv => {
+      // Aplicar filtro de categoria: se há categorias selecionadas, mostrar só as selecionadas
+      if (categoriaFilterSelected.size > 0 && !categoriaFilterSelected.has(inv.categoria || '')) {
+        return;
+      }
+      hasVisibleCards = true;
       const focoText = inv.foco || inv.focoRequisito || 'Sem especificação';
+      const categoriaText = inv.categoria || '';
+      const categoriaLabel = categoriaText ? `${emojiCategoria(categoriaText)} ${categoriaText}` : '';
       html += `
         <div class="inv-card" style="--card-color:${cores.main}">
           <div class="inv-header" style="background:linear-gradient(135deg,${cores.main} 0%,${cores.main}dd 100%);color:white">${dept} — ${DEPARTAMENTOS[dept] || ''}</div>
           <div class="inv-content">
             <div class="inv-title">${inv.investigacao || inv.questao || inv.textoQuestao || inv.id}</div>
+            ${categoriaLabel ? `<div class="inv-foco" style="border-color:${cores.main};color:${cores.main}">${categoriaLabel}</div>` : ''}
             ${focoText ? `<div class="inv-foco" style="border-color:${cores.main};color:${cores.main}">${focoText}</div>` : ''}
           </div>
           <div class="inv-footer">ID: ${inv.id || '—'}</div>
@@ -1092,12 +1151,73 @@ function renderInvestigacoes() {
     });
   });
   
-  invGrid.innerHTML = html || '<div class="empty-state" style="grid-column:1/-1"><div class="ei">📋</div><p>Nenhuma investigação neste departamento.</p></div>';
+  invGrid.innerHTML = hasVisibleCards ? html : '<div class="empty-state" style="grid-column:1/-1"><div class="ei">📋</div><p>Nenhuma investigação com os filtros selecionados.</p></div>';
 }
 
 function setDeptFilter(dept) {
   deptFilterSelected = dept;
   renderInvestigacoes();
+}
+
+function abrirModalFiltroCategoria() {
+  const container = document.getElementById('categoria-buttons-container');
+  const btnFiltro = document.getElementById('btn-filtro-categoria');
+  const categoriasList = JSON.parse(btnFiltro.dataset.categorias || '[]');
+  
+  let buttonsHtml = '';
+  categoriasList.forEach(cat => {
+    const emoji = emojiCategoria(cat);
+    const isActive = categoriaFilterSelected.has(cat) ? ' active' : '';
+    const escapedCat = cat.replace(/"/g, '&quot;');
+    buttonsHtml += `
+      <button type="button" class="btn-toggle${isActive}" data-categoria="${escapedCat}" onclick="toggleCategoriaFiltroBotao(this)">
+        ${emoji} ${cat}
+      </button>
+    `;
+  });
+  
+  container.innerHTML = buttonsHtml;
+  document.getElementById('categoria-filter-modal').classList.add('open');
+}
+
+function toggleCategoriaFiltroBotao(botao) {
+  botao.classList.toggle('active');
+}
+
+function fecharModalFiltroCategoria() {
+  document.getElementById('categoria-filter-modal').classList.remove('open');
+}
+
+function aplicarFiltroCategoria() {
+  const container = document.getElementById('categoria-buttons-container');
+  const buttons = container.querySelectorAll('button[data-categoria]');
+  
+  categoriaFilterSelected.clear();
+  buttons.forEach(button => {
+    if (button.classList.contains('active') && button.dataset.categoria) {
+      categoriaFilterSelected.add(button.dataset.categoria);
+    }
+  });
+  
+  fecharModalFiltroCategoria();
+  renderInvestigacoes();
+}
+
+function emojiCategoria(categoria) {
+  const texto = String(categoria || '').trim().toLowerCase();
+  if (!texto) return '🏷️';
+
+  if (texto.includes('process')) return '⚙️';
+  if (texto.includes('produto')) return '📦';
+  if (texto.includes('doc')) return '📄';
+  if (texto.includes('seguran')) return '🛡️';
+  if (texto.includes('qualidade')) return '✅';
+  if (texto.includes('compliance') || texto.includes('conform')) return '📌';
+  if (texto.includes('cliente')) return '🤝';
+  if (texto.includes('fornecedor')) return '🏭';
+  if (texto.includes('log')) return '🚚';
+
+  return '🏷️';
 }
 
 function exportarInvestigacoes() {
@@ -1477,11 +1597,14 @@ function renderQuestoesPorDept() {
   }
   document.getElementById('q-empty').style.display = 'none';
   
-  container.innerHTML = questoes.map((q, i) => `
+  container.innerHTML = questoes.map((q, i) => {
+    const categoriaLabel = q.categoria ? `${emojiCategoria(q.categoria)} ${q.categoria}` : '';
+    return `
     <div class="q-card">
       <div class="q-header">
         <div class="q-num">${q.id}</div>
         <div class="q-text">${q.investigacao}</div>
+        ${categoriaLabel ? `<div class="q-foco" style="margin-bottom:0">${categoriaLabel}</div>` : ''}
       </div>
       <div class="q-foco">${q.foco}</div>
       <div class="q-body">
@@ -1499,7 +1622,8 @@ function renderQuestoesPorDept() {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function setNC(qid, tipo, btn) {
@@ -1690,14 +1814,15 @@ async function carregarQuestoesDoSheet() {
     
     console.log('✅ Questões recebidas:', questoes);
     
-    if (questoes && Array.isArray(questoes) && questoes.length > 0) {
+    if (Array.isArray(questoes)) {
       dados.questoes = questoes;
       guardarDados();
-      console.log('✅ SUCESSO! Questões carregadas do sheet:', questoes.length, 'questões');
+      if (questoes.length > 0) {
+        console.log('✅ SUCESSO! Questões carregadas do sheet:', questoes.length, 'questões');
+      } else {
+        console.warn('Array vazio recebido do sheet');
+      }
       return questoes;
-    } else if (Array.isArray(questoes)) {
-      console.warn('Array vazio recebido do sheet');
-      return [];
     } else if (questoes.erro) {
       console.error('Erro retornado pelo AppScript:', questoes.erro);
       throw new Error(questoes.erro);
@@ -1793,19 +1918,16 @@ document.addEventListener('DOMContentLoaded', async function() {
       : [];
   }
   
-  // Se não há questões, tenta carregar do sheet PRIMEIRO
-  if (!dados.questoes || dados.questoes.length === 0) {
-    console.log('Sem questões em cache, tentando carregar do Google Sheet...');
-    const questoes = await carregarQuestoesDoSheet();
-    console.log('Resultado do carregamento:', questoes);
-    if (questoes && questoes.length > 0) {
-      console.log('✅ Questões carregadas do Sheet com sucesso!');
-    } else {
-      console.log('Sheet vazio ou erro, carregando pré-definidas...');
-      await importarQuestoesPredefinidas();
-    }
+  // Carregar sempre questões diretamente do REGISTOS no arranque
+  console.log('A carregar questões do Google Sheet REGISTOS...');
+  const questoes = await carregarQuestoesDoSheet();
+  console.log('Resultado do carregamento:', questoes);
+  if (questoes && questoes.length > 0) {
+    console.log('✅ Questões carregadas do Sheet com sucesso!');
+  } else if (Array.isArray(questoes) && questoes.length === 0) {
+    console.log('Sheet REGISTOS sem questões.');
   } else {
-    console.log('Questões já em cache, renderizando...');
+    console.log('Erro ao carregar do REGISTOS, mantendo dados em cache local.');
   }
 
   renderPlaneamentos();
