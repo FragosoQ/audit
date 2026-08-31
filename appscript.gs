@@ -15,20 +15,20 @@ function doPost(e) {
     let data;
     const contentType = (e.postData && e.postData.type ? e.postData.type : '').toLowerCase();
     const contents = e.postData && e.postData.contents ? e.postData.contents : '';
-    
-    // Lidar com JSON ou form data
-    if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+
+    if (contentType.includes('application/json')) {
       data = JSON.parse(contents);
-    } else if (e.parameter.data) {
-      // Dados vindos de um formulário
+    } else if (contentType.includes('text/plain') && contents) {
+      data = JSON.parse(contents);
+    } else if (e.parameter && e.parameter.data) {
       data = JSON.parse(e.parameter.data);
     } else {
       throw new Error('Dados inválidos');
     }
-    
+
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const operacao = data.operacao;
-    
+
     if (operacao === 'salvarIntro') {
       adicionarAuditoriaPlanificada(spreadsheet, data);
     } else if (operacao === 'salvarAuditoria') {
@@ -43,15 +43,26 @@ function doPost(e) {
       exportarResumoOmNc(spreadsheet, data);
     } else if (operacao === 'obterQuestoes') {
       const questoes = obterQuestoes(spreadsheet);
-      return HtmlService.createHtmlOutput(JSON.stringify(questoes));
+      return ContentService.createTextOutput(JSON.stringify(questoes))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader('Access-Control-Allow-Origin', '*')
+        .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        .setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
     }
-    
-    // Retornar resposta silenciosa (sem abrir janela)
-    return HtmlService.createHtmlOutput('<script>window.close();</script>').setWidth(1).setHeight(1);
-    
+
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, operacao }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader('Access-Control-Allow-Origin', '*')
+      .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
   } catch (erro) {
     Logger.log('Erro em doPost: ' + erro);
-    return HtmlService.createHtmlOutput('<script>window.close();</script>').setWidth(1).setHeight(1);
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, erro: erro.message }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader('Access-Control-Allow-Origin', '*')
+      .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
   }
 }
 
@@ -204,7 +215,10 @@ function exportarResumoOmNc(spreadsheet, data) {
 
 function doOptions(e) {
   return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT);
+    .setMimeType(ContentService.MimeType.TEXT)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 }
 
 function obterPlaneamentosIntro(spreadsheet) {

@@ -588,7 +588,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
     <div class="toolbar">
       <button class="btn btn-dark" onclick="carregarEExibirRelatoriosRealizados()">↻ Recarregar do Sheet</button>
       <button class="btn btn-ghost" onclick="toggleResumoOmNc()">📊 OM/NC por Departamento e Ano</button>
-      <button class="btn btn-ghost" onclick="exportarResumoOmNcParaSheet()">⬇ Exportar para Sheet</button>
+      <button class="btn btn-ghost" onclick="copiarResumoOmNcParaClipboard()">📋 Copiar tabela</button>
       <button class="btn btn-ghost" onclick="exportarRelatorioPDF('rel-realizado-content', 'relatorio-realizado')">⬇ Exportar PDF</button>
     </div>
     <div id="relatorios-lista"></div>
@@ -1302,12 +1302,76 @@ function extrairAnoRelatorio(registo) {
   return '—';
 }
 
+function gerarAcaoSmartAnalysisItem(item) {
+  const tema = (item.investigacao || item.foco || 'item sem descrição').trim();
+  const evidenciaPreenchida = (item.evidencia || '').trim().length > 0;
+  const omPreenchida = (item.om || '').trim().length > 0;
+
+  if (item.nc === 'NC') {
+    if (!evidenciaPreenchida) {
+      return `Corrigir a NC em "${tema}", recolher evidência objetiva e validar eficácia da correção.`;
+    }
+    return `Implementar ação corretiva para a NC em "${tema}" com responsável, prazo e verificação de eficácia.`;
+  }
+
+  if (!omPreenchida) {
+    return `Definir ação preventiva para a OM em "${tema}" e documentar a observação para acompanhamento.`;
+  }
+
+  return `Tratar a OM em "${tema}" com ação de melhoria e monitorizar para prevenir recorrência.`;
+}
+
+function normalizarOcorrenciasOmNc(registo) {
+  const tipo = String(registo.nc || '').trim().toUpperCase();
+  if (!['OM', 'NC'].includes(tipo)) return [];
+
+  const valorOriginal = tipo === 'OM'
+    ? (registo.om || registo.evidencia || '')
+    : (registo.evidencia || registo.om || '');
+
+  const partes = String(valorOriginal)
+    .split(/(?=\b(?:OM|NC)\s*[-:])/i)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  const fonte = partes.length ? partes : [valorOriginal || ''];
+
+  return fonte.map((texto) => {
+    const textoSemPrefixo = String(texto)
+      .replace(new RegExp(`^\\s*(?:${tipo})\\s*[-:]?\\s*`, 'i'), '')
+      .replace(/^[-•\s]+/, '')
+      .trim();
+
+    const acaoIdentificada = textoSemPrefixo || '—';
+
+    return {
+      id: registo.id || 'SEM-ID',
+      tipo,
+      investigacao: registo.investigacao || registo.foco || 'Constatação sem descrição',
+      foco: registo.foco || '—',
+      evidencia: registo.evidencia || '—',
+      om: registo.om || '—',
+      acaoIdentificada: acaoIdentificada,
+      acaoPrevista: gerarAcaoSmartAnalysisItem({
+        ...registo,
+        nc: tipo,
+        investigacao: acaoIdentificada || registo.investigacao || registo.foco || 'Constatação sem descrição',
+        om: tipo === 'OM' ? acaoIdentificada : registo.om || '—',
+        evidencia: tipo === 'NC' ? acaoIdentificada : registo.evidencia || '—'
+      })
+    };
+  });
+}
+
 function buildResumoOmNc(registos) {
   const agrupado = new Map();
 
   registos
     .filter(r => r && (r.nc === 'OM' || r.nc === 'NC'))
     .forEach(r => {
+      const ocorrencias = normalizarOcorrenciasOmNc(r);
+      if (!ocorrencias.length) return;
+
       const dept = (r.departamento || 'Sem departamento').trim() || 'Sem departamento';
       const ano = extrairAnoRelatorio(r);
       const key = `${ano}::${dept}`;
@@ -1323,16 +1387,12 @@ function buildResumoOmNc(registos) {
       }
 
       const grupo = agrupado.get(key);
-      if (r.nc === 'OM') grupo.om += 1;
-      if (r.nc === 'NC') grupo.nc += 1;
 
-      grupo.itens.push({
-        id: r.id || 'SEM-ID',
-        tipo: r.nc,
-        investigacao: r.investigacao || r.foco || 'Constatação sem descrição',
-        foco: r.foco || '—',
-        evidencia: r.evidencia || '—',
-        om: r.om || '—'
+      ocorrencias.forEach(item => {
+        if (item.tipo === 'OM') grupo.om += 1;
+        if (item.tipo === 'NC') grupo.nc += 1;
+
+        grupo.itens.push(item);
       });
     });
 
@@ -1364,6 +1424,20 @@ function renderResumoOmNc() {
 
   const totalOm = resumo.reduce((acc, item) => acc + item.om, 0);
   const totalNc = resumo.reduce((acc, item) => acc + item.nc, 0);
+  const linhasDetalhadas = resumo.flatMap(grupo =>
+    grupo.itens.map(item => ({
+      departamento: grupo.departamento,
+      ano: grupo.ano === '—' ? 'Sem ano' : grupo.ano,
+      tipo: item.tipo,
+      id: item.id,
+      investigacao: item.investigacao,
+      foco: item.foco,
+      acaoIdentificada: item.acaoIdentificada,
+      acaoPrevista: item.acaoPrevista,
+      totalOm: grupo.om,
+      totalNc: grupo.nc
+    }))
+  );
 
   painel.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
@@ -1371,35 +1445,41 @@ function renderResumoOmNc() {
         <div style="font-weight:800;font-size:12px;color:var(--slate500);text-transform:uppercase;letter-spacing:.05em">OM/NC por departamento e ano</div>
         <div style="font-size:13px;color:var(--slate600);margin-top:.35rem">Resumo consolidado de todos os relatórios</div>
       </div>
-      <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
         <span class="tog t-om" style="padding:.4rem .8rem;font-size:11px">OM: ${totalOm}</span>
         <span class="tog t-nc" style="padding:.4rem .8rem;font-size:11px">NC: ${totalNc}</span>
+        <button class="btn btn-ghost btn-sm" onclick="copiarResumoOmNcParaClipboard()">📋 Copiar</button>
       </div>
     </div>
-    <div style="display:grid;gap:1rem">
-      ${resumo.map(grupo => `
-        <div style="border:1px solid var(--slate200);border-radius:12px;padding:1rem;background:var(--slate50)">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
-            <div>
-              <div style="font-weight:800;color:var(--slate700)">${grupo.departamento}</div>
-              <div style="font-size:12px;color:var(--slate500)">Ano: ${grupo.ano === '—' ? 'Sem ano' : grupo.ano}</div>
-            </div>
-            <div style="display:flex;gap:.7rem;flex-wrap:wrap">
-              <span class="tog t-om" style="padding:.3rem .7rem;font-size:11px">OM ${grupo.om}</span>
-              <span class="tog t-nc" style="padding:.3rem .7rem;font-size:11px">NC ${grupo.nc}</span>
-            </div>
-          </div>
-          <ul style="margin:0;padding-left:1.1rem;display:grid;gap:.55rem;color:var(--slate700);font-size:12px;line-height:1.5">
-            ${grupo.itens.map(item => `
-              <li>
-                <span class="tog t-${item.tipo === 'OM' ? 'om' : 'nc'}" style="padding:.2rem .55rem;font-size:10px;margin-right:.5rem">${item.tipo}</span>
-                <strong>${item.investigacao}</strong>
-                <div style="color:var(--slate500);margin-left:0.1rem">${item.foco} · ${item.id}</div>
-              </li>
-            `).join('') || '<li style="color:var(--slate500)">Sem ocorrências neste agrupamento.</li>'}
-          </ul>
-        </div>
-      `).join('')}
+    <div style="overflow:auto;border:1px solid var(--slate200);border-radius:10px;background:#fff">
+      <table style="width:100%;border-collapse:collapse;min-width:1100px;font-size:12px;color:var(--slate700)">
+        <thead>
+          <tr style="background:var(--slate100)">
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Departamento</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Ano</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Tipo</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">ID</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Investigação</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Ação identificada</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Total OM</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Total NC</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhasDetalhadas.map(linha => `
+            <tr>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100);font-weight:700">${linha.departamento}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.ano}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-${linha.tipo === 'OM' ? 'om' : 'nc'}" style="padding:.2rem .55rem;font-size:10px">${linha.tipo}</span></td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.id}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.investigacao}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.acaoIdentificada}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-om" style="padding:.2rem .55rem;font-size:10px">${linha.totalOm}</span></td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-nc" style="padding:.2rem .55rem;font-size:10px">${linha.totalNc}</span></td>
+            </tr>
+          `).join('') || '<tr><td colspan="8" style="padding:1rem;color:var(--slate500)">Sem ocorrências</td></tr>'}
+        </tbody>
+      </table>
     </div>
   `;
 
@@ -1442,24 +1522,51 @@ function gerarLinhasResumoOmNc() {
   return linhas;
 }
 
-async function exportarResumoOmNcParaSheet() {
+async function copiarResumoOmNcParaClipboard() {
   if (!relatoriosSheet || !relatoriosSheet.length) {
-    alert('Nenhum relatório carregado para exportar.');
+    alert('Nenhum relatório carregado para copiar.');
     return;
   }
 
-  const linhas = gerarLinhasResumoOmNc();
-  if (!linhas.length) {
-    alert('Não existem OM/NC para exportar.');
+  const resumo = buildResumoOmNc(relatoriosSheet);
+  if (!resumo.length) {
+    alert('Não existem OM/NC para copiar.');
     return;
   }
+
+  const linhas = [
+    ['Departamento', 'Ano', 'Tipo', 'ID', 'Investigação', 'Ação identificada', 'Total OM', 'Total NC'],
+    ...resumo.flatMap(grupo =>
+      grupo.itens.map(item => [
+        grupo.departamento,
+        grupo.ano === '—' ? 'Sem ano' : grupo.ano,
+        item.tipo,
+        item.id,
+        item.investigacao,
+        item.acaoIdentificada,
+        String(grupo.om),
+        String(grupo.nc)
+      ])
+    )
+  ];
+
+  const texto = linhas.map(linha => linha.map(c => `"${String(c).replace(/"/g, '""')}"`).join('\t')).join('\n');
 
   try {
-    await enviarParaAppScript('exportarResumoOmNc', { resumo: linhas });
-    alert('✅ Resumo OM/NC exportado para a folha de Google Sheets.');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(texto);
+    } else {
+      const area = document.createElement('textarea');
+      area.value = texto;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+    }
+    alert('✅ Tabela copiada para a área de transferência. Pode colar no Excel/Word.');
   } catch (error) {
-    console.error('Erro ao exportar resumo OM/NC:', error);
-    alert('❌ Não foi possível exportar para Google Sheets.');
+    console.error('Erro ao copiar tabela OM/NC:', error);
+    alert('❌ Não foi possível copiar a tabela. Tente novamente ou selecione o conteúdo manualmente.');
   }
 }
 
@@ -2029,21 +2136,39 @@ async function carregarQuestoesDoSheet() {
   return dados.questoes || [];
 }
 
-// Envia dados para o AppScript via fetch no-cors com text/plain (sem preflight CORS)
+// Envia dados para o AppScript com CORS explícito para garantir que a gravação na folha acontece.
 async function enviarParaAppScript(operacao, dados_) {
   try {
     const payload = JSON.stringify({ operacao, ...dados_ });
-    // Enviamos como form-urlencoded dentro de text/plain para evitar preflight
-    // O Apps Script lê via e.postData.contents
-    await fetch(APPSCRIPT_URL, {
+    const response = await fetch(APPSCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: payload
     });
-    console.log('Dados enviados para o Google Sheets:', operacao);
+
+    const text = await response.text();
+    let json = {};
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        json = { raw: text };
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(json.erro || json.message || `HTTP ${response.status}`);
+    }
+
+    console.log('Dados enviados para o Google Sheets:', operacao, json);
+    return json;
   } catch(e) {
     console.warn('Erro ao enviar dados:', e.message);
+    throw e;
   }
 }
 
