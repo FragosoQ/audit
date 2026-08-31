@@ -587,10 +587,13 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
     </div>
     <div class="toolbar">
       <button class="btn btn-dark" onclick="carregarEExibirRelatoriosRealizados()">↻ Recarregar do Sheet</button>
+      <button class="btn btn-ghost" onclick="toggleResumoOmNc()">📊 OM/NC por Departamento e Ano</button>
+      <button class="btn btn-ghost" onclick="exportarResumoOmNcParaSheet()">⬇ Exportar para Sheet</button>
       <button class="btn btn-ghost" onclick="exportarRelatorioPDF('rel-realizado-content', 'relatorio-realizado')">⬇ Exportar PDF</button>
     </div>
     <div id="relatorios-lista"></div>
     <div id="relatorios-empty" class="empty-state" style="display:none"><div class="ei">📄</div><p>Nenhum relatório encontrado no separador AUDITORIA.</p></div>
+    <div id="relatorios-omnc-panel" class="card" style="display:none;margin-top:1.25rem;padding:1.25rem"></div>
     <div class="report-wrap" id="rel-realizado-content" style="display:none;margin-top:1.25rem"></div>
   </div>
 </div>
@@ -1284,6 +1287,182 @@ function agruparAuditoriasPorId(registos) {
   return Object.values(grupos).sort((a, b) => (a.id < b.id ? 1 : -1));
 }
 
+function extrairAnoRelatorio(registo) {
+  if (!registo) return '—';
+  if (registo.ano) return String(registo.ano);
+
+  const id = registo.id || '';
+  const matchId = /^AUD-(\d{4})/.exec(id);
+  if (matchId) return matchId[1];
+
+  const data = registo.data || '';
+  const matchData = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(data);
+  if (matchData) return matchData[1];
+
+  return '—';
+}
+
+function buildResumoOmNc(registos) {
+  const agrupado = new Map();
+
+  registos
+    .filter(r => r && (r.nc === 'OM' || r.nc === 'NC'))
+    .forEach(r => {
+      const dept = (r.departamento || 'Sem departamento').trim() || 'Sem departamento';
+      const ano = extrairAnoRelatorio(r);
+      const key = `${ano}::${dept}`;
+
+      if (!agrupado.has(key)) {
+        agrupado.set(key, {
+          ano,
+          departamento: dept,
+          om: 0,
+          nc: 0,
+          itens: []
+        });
+      }
+
+      const grupo = agrupado.get(key);
+      if (r.nc === 'OM') grupo.om += 1;
+      if (r.nc === 'NC') grupo.nc += 1;
+
+      grupo.itens.push({
+        id: r.id || 'SEM-ID',
+        tipo: r.nc,
+        investigacao: r.investigacao || r.foco || 'Constatação sem descrição',
+        foco: r.foco || '—',
+        evidencia: r.evidencia || '—',
+        om: r.om || '—'
+      });
+    });
+
+  return Array.from(agrupado.values())
+    .sort((a, b) => {
+      const anoA = Number(a.ano) || 0;
+      const anoB = Number(b.ano) || 0;
+      if (anoA !== anoB) return anoB - anoA;
+      return a.departamento.localeCompare(b.departamento, 'pt');
+    });
+}
+
+function renderResumoOmNc() {
+  const painel = document.getElementById('relatorios-omnc-panel');
+  if (!painel) return;
+
+  const resumo = buildResumoOmNc(relatoriosSheet || []);
+
+  if (!resumo.length) {
+    painel.innerHTML = `
+      <div style="font-size:13px;color:var(--slate600)">
+        <div style="font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.7rem">OM/NC por departamento e ano</div>
+        <div style="padding:1rem;border:1px dashed var(--slate200);border-radius:10px;color:var(--slate500)">Nenhuma OM ou NC encontrada em todos os relatórios carregados.</div>
+      </div>
+    `;
+    painel.style.display = 'block';
+    return;
+  }
+
+  const totalOm = resumo.reduce((acc, item) => acc + item.om, 0);
+  const totalNc = resumo.reduce((acc, item) => acc + item.nc, 0);
+
+  painel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+      <div>
+        <div style="font-weight:800;font-size:12px;color:var(--slate500);text-transform:uppercase;letter-spacing:.05em">OM/NC por departamento e ano</div>
+        <div style="font-size:13px;color:var(--slate600);margin-top:.35rem">Resumo consolidado de todos os relatórios</div>
+      </div>
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+        <span class="tog t-om" style="padding:.4rem .8rem;font-size:11px">OM: ${totalOm}</span>
+        <span class="tog t-nc" style="padding:.4rem .8rem;font-size:11px">NC: ${totalNc}</span>
+      </div>
+    </div>
+    <div style="display:grid;gap:1rem">
+      ${resumo.map(grupo => `
+        <div style="border:1px solid var(--slate200);border-radius:12px;padding:1rem;background:var(--slate50)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
+            <div>
+              <div style="font-weight:800;color:var(--slate700)">${grupo.departamento}</div>
+              <div style="font-size:12px;color:var(--slate500)">Ano: ${grupo.ano === '—' ? 'Sem ano' : grupo.ano}</div>
+            </div>
+            <div style="display:flex;gap:.7rem;flex-wrap:wrap">
+              <span class="tog t-om" style="padding:.3rem .7rem;font-size:11px">OM ${grupo.om}</span>
+              <span class="tog t-nc" style="padding:.3rem .7rem;font-size:11px">NC ${grupo.nc}</span>
+            </div>
+          </div>
+          <ul style="margin:0;padding-left:1.1rem;display:grid;gap:.55rem;color:var(--slate700);font-size:12px;line-height:1.5">
+            ${grupo.itens.map(item => `
+              <li>
+                <span class="tog t-${item.tipo === 'OM' ? 'om' : 'nc'}" style="padding:.2rem .55rem;font-size:10px;margin-right:.5rem">${item.tipo}</span>
+                <strong>${item.investigacao}</strong>
+                <div style="color:var(--slate500);margin-left:0.1rem">${item.foco} · ${item.id}</div>
+              </li>
+            `).join('') || '<li style="color:var(--slate500)">Sem ocorrências neste agrupamento.</li>'}
+          </ul>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  painel.style.display = 'block';
+}
+
+function toggleResumoOmNc() {
+  const painel = document.getElementById('relatorios-omnc-panel');
+  if (!painel) return;
+
+  const visivel = painel.style.display === 'block';
+  painel.style.display = visivel ? 'none' : 'block';
+
+  if (!visivel) {
+    renderResumoOmNc();
+  }
+}
+
+function gerarLinhasResumoOmNc() {
+  const resumo = buildResumoOmNc(relatoriosSheet || []);
+  const linhas = [];
+
+  resumo.forEach(grupo => {
+    grupo.itens.forEach(item => {
+      linhas.push({
+        ano: grupo.ano,
+        departamento: grupo.departamento,
+        totalOm: grupo.om,
+        totalNc: grupo.nc,
+        tipo: item.tipo,
+        id: item.id,
+        investigacao: item.investigacao,
+        foco: item.foco,
+        observacao: item.om,
+        evidencia: item.evidencia
+      });
+    });
+  });
+
+  return linhas;
+}
+
+async function exportarResumoOmNcParaSheet() {
+  if (!relatoriosSheet || !relatoriosSheet.length) {
+    alert('Nenhum relatório carregado para exportar.');
+    return;
+  }
+
+  const linhas = gerarLinhasResumoOmNc();
+  if (!linhas.length) {
+    alert('Não existem OM/NC para exportar.');
+    return;
+  }
+
+  try {
+    await enviarParaAppScript('exportarResumoOmNc', { resumo: linhas });
+    alert('✅ Resumo OM/NC exportado para a folha de Google Sheets.');
+  } catch (error) {
+    console.error('Erro ao exportar resumo OM/NC:', error);
+    alert('❌ Não foi possível exportar para Google Sheets.');
+  }
+}
+
 function formatarDataAuditId(auditId) {
   const m = /^AUD-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(auditId || '');
   if (!m) return '—';
@@ -1351,6 +1530,9 @@ async function carregarEExibirRelatoriosRealizados() {
   detalhe.style.display = 'none';
 
   relatoriosSheet = await carregarAuditoriasDoSheet();
+  const painelResumo = document.getElementById('relatorios-omnc-panel');
+  if (painelResumo) painelResumo.style.display = 'none';
+
   const auditorias = agruparAuditoriasPorId(relatoriosSheet);
 
   if (!auditorias.length) {

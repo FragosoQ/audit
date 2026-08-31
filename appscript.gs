@@ -39,6 +39,8 @@ function doPost(e) {
       apagarAuditoriaPlanificada(spreadsheet, data);
     } else if (operacao === 'atualizarStatusIntro') {
       atualizarStatusAuditoriaPlanificada(spreadsheet, data);
+    } else if (operacao === 'exportarResumoOmNc') {
+      exportarResumoOmNc(spreadsheet, data);
     } else if (operacao === 'obterQuestoes') {
       const questoes = obterQuestoes(spreadsheet);
       return HtmlService.createHtmlOutput(JSON.stringify(questoes));
@@ -165,6 +167,39 @@ function obterAuditorias(spreadsheet) {
     Logger.log('❌ ERRO em obterAuditorias: ' + erro.toString());
     return [];
   }
+}
+
+function exportarResumoOmNc(spreadsheet, data) {
+  const rows = Array.isArray(data && data.resumo) ? data.resumo : [];
+  const sheetName = 'OM_NC_RESUMO';
+  let sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+  }
+
+  const headers = ['Ano', 'Departamento', 'Total OM', 'Total NC', 'Tipo', 'ID Auditoria', 'Investigação', 'Foco', 'Observação', 'Evidência'];
+  sheet.clear();
+  sheet.appendRow(headers);
+
+  if (!rows.length) {
+    return;
+  }
+
+  const values = rows.map(row => [
+    row.ano || '',
+    row.departamento || '',
+    row.totalOm || 0,
+    row.totalNc || 0,
+    row.tipo || '',
+    row.id || '',
+    row.investigacao || '',
+    row.foco || '',
+    row.observacao || '',
+    row.evidencia || ''
+  ]);
+
+  sheet.getRange(2, 1, values.length, headers.length).setValues(values);
 }
 
 function doOptions(e) {
