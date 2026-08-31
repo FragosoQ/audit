@@ -216,6 +216,7 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
 .filter-btn[style]{border-color:var(--btn-color,var(--slate200));color:var(--btn-color,var(--slate600))}
 .filter-btn[style]:hover{border-color:var(--btn-color);background:var(--btn-light);color:var(--btn-color)}
 .filter-btn.active{background:var(--btn-color,var(--purple));color:#fff;border-color:var(--btn-color,var(--purple));box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.filter-label{display:inline-flex;align-items:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-right:.25rem}
 
 /* PLANEAMENTO CALENDÁRIO */
 .plan-calendar{background:var(--white);border:1px solid var(--slate100);border-radius:var(--r-lg);padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
@@ -591,6 +592,8 @@ table.main-table tr:hover td{background:rgba(248,250,252,.6)}
       <button class="btn btn-ghost" onclick="copiarResumoOmNcParaClipboard()">📋 Copiar tabela</button>
       <button class="btn btn-ghost" onclick="exportarRelatorioPDF('rel-realizado-content', 'relatorio-realizado')">⬇ Exportar PDF</button>
     </div>
+    <div class="filter-dept" id="filter-relatorios-dept"></div>
+    <div class="filter-dept" id="filter-relatorios-ano"></div>
     <div id="relatorios-lista"></div>
     <div id="relatorios-empty" class="empty-state" style="display:none"><div class="ei">📄</div><p>Nenhum relatório encontrado no separador AUDITORIA.</p></div>
     <div id="relatorios-omnc-panel" class="card" style="display:none;margin-top:1.25rem;padding:1.25rem"></div>
@@ -650,6 +653,8 @@ let deptAtual = null;
 let deptFilterSelected = null; // Para filtro na view registos
 let categoriaFilterSelected = new Set(); // Para filtro de categorias
 let relatoriosSheet = [];
+let relatoriosFiltroDept = null; // Para filtro de Departamento na view Relatórios Realizados
+let relatoriosFiltroAno = null; // Para filtro de Ano na view Relatórios Realizados
 let planeamentoMesRef = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
 function goHome() { goTo('menu'); }
@@ -1325,42 +1330,28 @@ function normalizarOcorrenciasOmNc(registo) {
   const tipo = String(registo.nc || '').trim().toUpperCase();
   if (!['OM', 'NC'].includes(tipo)) return [];
 
-  const valorOriginal = tipo === 'OM'
-    ? (registo.om || registo.evidencia || '')
-    : (registo.evidencia || registo.om || '');
+  // Coluna E (cabeçalho "CONSTATAÇÃO / EVIDÊNCIA") — o que foi escrito no ev-textarea
+  const constatacao = String(registo.evidencia || '').trim() || '—';
+  // Coluna F (cabeçalho "OM") — tal como está na folha, sem qualquer processamento
+  const acaoIdentificada = String(registo.om || '').trim() || '—';
 
-  const partes = String(valorOriginal)
-    .split(/(?=\b(?:OM|NC)\s*[-:])/i)
-    .map(p => p.trim())
-    .filter(Boolean);
-
-  const fonte = partes.length ? partes : [valorOriginal || ''];
-
-  return fonte.map((texto) => {
-    const textoSemPrefixo = String(texto)
-      .replace(new RegExp(`^\\s*(?:${tipo})\\s*[-:]?\\s*`, 'i'), '')
-      .replace(/^[-•\s]+/, '')
-      .trim();
-
-    const acaoIdentificada = textoSemPrefixo || '—';
-
-    return {
-      id: registo.id || 'SEM-ID',
-      tipo,
+  return [{
+    id: registo.id || 'SEM-ID',
+    tipo,
+    investigacao: registo.investigacao || registo.foco || 'Constatação sem descrição',
+    foco: registo.foco || '—',
+    evidencia: registo.evidencia || '—',
+    om: registo.om || '—',
+    constatacao: constatacao,
+    acaoIdentificada: acaoIdentificada,
+    acaoPrevista: gerarAcaoSmartAnalysisItem({
+      ...registo,
+      nc: tipo,
       investigacao: registo.investigacao || registo.foco || 'Constatação sem descrição',
-      foco: registo.foco || '—',
-      evidencia: registo.evidencia || '—',
       om: registo.om || '—',
-      acaoIdentificada: acaoIdentificada,
-      acaoPrevista: gerarAcaoSmartAnalysisItem({
-        ...registo,
-        nc: tipo,
-        investigacao: acaoIdentificada || registo.investigacao || registo.foco || 'Constatação sem descrição',
-        om: tipo === 'OM' ? acaoIdentificada : registo.om || '—',
-        evidencia: tipo === 'NC' ? acaoIdentificada : registo.evidencia || '—'
-      })
-    };
-  });
+      evidencia: registo.evidencia || '—'
+    })
+  }];
 }
 
 function buildResumoOmNc(registos) {
@@ -1409,7 +1400,7 @@ function renderResumoOmNc() {
   const painel = document.getElementById('relatorios-omnc-panel');
   if (!painel) return;
 
-  const resumo = buildResumoOmNc(relatoriosSheet || []);
+  const resumo = buildResumoOmNc(getRelatoriosFiltrados());
 
   if (!resumo.length) {
     painel.innerHTML = `
@@ -1432,6 +1423,7 @@ function renderResumoOmNc() {
       id: item.id,
       investigacao: item.investigacao,
       foco: item.foco,
+      constatacao: item.constatacao,
       acaoIdentificada: item.acaoIdentificada,
       acaoPrevista: item.acaoPrevista,
       totalOm: grupo.om,
@@ -1452,7 +1444,7 @@ function renderResumoOmNc() {
       </div>
     </div>
     <div style="overflow:auto;border:1px solid var(--slate200);border-radius:10px;background:#fff">
-      <table style="width:100%;border-collapse:collapse;min-width:1100px;font-size:12px;color:var(--slate700)">
+      <table style="width:100%;border-collapse:collapse;min-width:1300px;font-size:12px;color:var(--slate700)">
         <thead>
           <tr style="background:var(--slate100)">
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Departamento</th>
@@ -1460,6 +1452,7 @@ function renderResumoOmNc() {
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Tipo</th>
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">ID</th>
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Investigação</th>
+            <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Constatação / Evidência</th>
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Ação identificada</th>
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Total OM</th>
             <th style="padding:.8rem .75rem;border-bottom:1px solid var(--slate200);text-align:left">Total NC</th>
@@ -1473,11 +1466,12 @@ function renderResumoOmNc() {
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-${linha.tipo === 'OM' ? 'om' : 'nc'}" style="padding:.2rem .55rem;font-size:10px">${linha.tipo}</span></td>
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.id}</td>
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.investigacao}</td>
+              <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100);white-space:pre-wrap;max-width:280px">${linha.constatacao}</td>
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)">${linha.acaoIdentificada}</td>
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-om" style="padding:.2rem .55rem;font-size:10px">${linha.totalOm}</span></td>
               <td style="padding:.7rem .75rem;border-bottom:1px solid var(--slate100)"><span class="tog t-nc" style="padding:.2rem .55rem;font-size:10px">${linha.totalNc}</span></td>
             </tr>
-          `).join('') || '<tr><td colspan="8" style="padding:1rem;color:var(--slate500)">Sem ocorrências</td></tr>'}
+          `).join('') || '<tr><td colspan="9" style="padding:1rem;color:var(--slate500)">Sem ocorrências</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -1499,7 +1493,7 @@ function toggleResumoOmNc() {
 }
 
 function gerarLinhasResumoOmNc() {
-  const resumo = buildResumoOmNc(relatoriosSheet || []);
+  const resumo = buildResumoOmNc(getRelatoriosFiltrados());
   const linhas = [];
 
   resumo.forEach(grupo => {
@@ -1513,6 +1507,7 @@ function gerarLinhasResumoOmNc() {
         id: item.id,
         investigacao: item.investigacao,
         foco: item.foco,
+        constatacao: item.constatacao,
         observacao: item.om,
         evidencia: item.evidencia
       });
@@ -1528,14 +1523,14 @@ async function copiarResumoOmNcParaClipboard() {
     return;
   }
 
-  const resumo = buildResumoOmNc(relatoriosSheet);
+  const resumo = buildResumoOmNc(getRelatoriosFiltrados());
   if (!resumo.length) {
-    alert('Não existem OM/NC para copiar.');
+    alert('Não existem OM/NC para copiar (com os filtros atuais).');
     return;
   }
 
   const linhas = [
-    ['Departamento', 'Ano', 'Tipo', 'ID', 'Investigação', 'Ação identificada', 'Total OM', 'Total NC'],
+    ['Departamento', 'Ano', 'Tipo', 'ID', 'Investigação', 'Constatação / Evidência', 'Ação identificada', 'Total OM', 'Total NC'],
     ...resumo.flatMap(grupo =>
       grupo.itens.map(item => [
         grupo.departamento,
@@ -1543,6 +1538,7 @@ async function copiarResumoOmNcParaClipboard() {
         item.tipo,
         item.id,
         item.investigacao,
+        item.constatacao,
         item.acaoIdentificada,
         String(grupo.om),
         String(grupo.nc)
@@ -1630,7 +1626,6 @@ function exportarRelatorioPDF(containerId, nomeBase = 'relatorio') {
 
 async function carregarEExibirRelatoriosRealizados() {
   const lista = document.getElementById('relatorios-lista');
-  const empty = document.getElementById('relatorios-empty');
   const detalhe = document.getElementById('rel-realizado-content');
 
   lista.innerHTML = '<div class="empty-state"><div class="ei">⏳</div><p>A carregar relatórios...</p></div>';
@@ -1640,7 +1635,63 @@ async function carregarEExibirRelatoriosRealizados() {
   const painelResumo = document.getElementById('relatorios-omnc-panel');
   if (painelResumo) painelResumo.style.display = 'none';
 
-  const auditorias = agruparAuditoriasPorId(relatoriosSheet);
+  relatoriosFiltroDept = null;
+  relatoriosFiltroAno = null;
+
+  renderRelatoriosFiltros();
+  renderRelatoriosTabela();
+}
+
+function getRelatoriosFiltrados() {
+  return (relatoriosSheet || []).filter(r => {
+    if (relatoriosFiltroDept !== null && (r.departamento || '—') !== relatoriosFiltroDept) return false;
+    if (relatoriosFiltroAno !== null && extrairAnoRelatorio(r) !== relatoriosFiltroAno) return false;
+    return true;
+  });
+}
+
+function renderRelatoriosFiltros() {
+  const filtroDeptEl = document.getElementById('filter-relatorios-dept');
+  const filtroAnoEl = document.getElementById('filter-relatorios-ano');
+  if (!filtroDeptEl || !filtroAnoEl) return;
+
+  const depts = Array.from(new Set((relatoriosSheet || []).map(r => r.departamento || '—'))).sort();
+  const anos = Array.from(new Set((relatoriosSheet || []).map(r => extrairAnoRelatorio(r))))
+    .sort((a, b) => String(b).localeCompare(String(a)));
+
+  if (!depts.length) {
+    filtroDeptEl.innerHTML = '';
+  } else {
+    let deptHtml = '<span class="filter-label">Departamento:</span>';
+    deptHtml += `<button class="filter-btn${relatoriosFiltroDept === null ? ' active' : ''}" onclick="setRelatoriosFiltroDept(null)">Todos</button>`;
+    depts.forEach(dept => {
+      const cores = CORES_DEPARTAMENTOS[dept];
+      const activeClass = relatoriosFiltroDept === dept ? ' active' : '';
+      const style = cores ? ` style="--btn-color:${cores.main};--btn-light:${cores.light}"` : '';
+      deptHtml += `<button class="filter-btn${activeClass}"${style} onclick="setRelatoriosFiltroDept('${dept}')">${dept}</button>`;
+    });
+    filtroDeptEl.innerHTML = deptHtml;
+  }
+
+  if (!anos.length) {
+    filtroAnoEl.innerHTML = '';
+  } else {
+    let anoHtml = '<span class="filter-label">Ano:</span>';
+    anoHtml += `<button class="filter-btn${relatoriosFiltroAno === null ? ' active' : ''}" onclick="setRelatoriosFiltroAno(null)">Todos</button>`;
+    anos.forEach(ano => {
+      const activeClass = relatoriosFiltroAno === ano ? ' active' : '';
+      anoHtml += `<button class="filter-btn${activeClass}" onclick="setRelatoriosFiltroAno('${ano}')">${ano}</button>`;
+    });
+    filtroAnoEl.innerHTML = anoHtml;
+  }
+}
+
+function renderRelatoriosTabela() {
+  const lista = document.getElementById('relatorios-lista');
+  const empty = document.getElementById('relatorios-empty');
+  if (!lista || !empty) return;
+
+  const auditorias = agruparAuditoriasPorId(getRelatoriosFiltrados());
 
   if (!auditorias.length) {
     lista.innerHTML = '';
@@ -1676,6 +1727,22 @@ async function carregarEExibirRelatoriosRealizados() {
       </table>
     </div>
   `;
+}
+
+function setRelatoriosFiltroDept(dept) {
+  relatoriosFiltroDept = dept;
+  const painelResumo = document.getElementById('relatorios-omnc-panel');
+  if (painelResumo && painelResumo.style.display === 'block') renderResumoOmNc();
+  renderRelatoriosFiltros();
+  renderRelatoriosTabela();
+}
+
+function setRelatoriosFiltroAno(ano) {
+  relatoriosFiltroAno = ano;
+  const painelResumo = document.getElementById('relatorios-omnc-panel');
+  if (painelResumo && painelResumo.style.display === 'block') renderResumoOmNc();
+  renderRelatoriosFiltros();
+  renderRelatoriosTabela();
 }
 
 function verRelatorioRealizado(auditId) {
