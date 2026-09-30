@@ -1409,7 +1409,7 @@ function buildResumoOmNc(registos) {
     });
 }
 
-let filtroOmNc = { dept: 'TODOS', ano: 'TODOS' };
+let filtroOmNc = { dept: 'TODOS', anos: [] }; // anos vazio = todos os anos
 
 function anoLabelOmNc(ano) {
   return ano === '—' ? 'Sem ano' : ano;
@@ -1418,12 +1418,22 @@ function anoLabelOmNc(ano) {
 function obterResumoOmNcFiltrado() {
   return buildResumoOmNc(relatoriosSheet || []).filter(g =>
     (filtroOmNc.dept === 'TODOS' || g.departamento === filtroOmNc.dept) &&
-    (filtroOmNc.ano === 'TODOS' || g.ano === filtroOmNc.ano)
+    (!filtroOmNc.anos.length || filtroOmNc.anos.includes(g.ano))
   );
 }
 
 function setFiltroOmNc(campo, valor) {
-  filtroOmNc[campo] = valor;
+  if (campo === 'ano') {
+    if (valor === 'TODOS') {
+      filtroOmNc.anos = [];
+    } else {
+      filtroOmNc.anos = filtroOmNc.anos.includes(valor)
+        ? filtroOmNc.anos.filter(a => a !== valor)
+        : [...filtroOmNc.anos, valor];
+    }
+  } else {
+    filtroOmNc[campo] = valor;
+  }
   renderResumoOmNc();
 }
 
@@ -1447,23 +1457,25 @@ function renderResumoOmNc() {
   const deptsDisponiveis = [...new Set(resumoTotal.map(g => g.departamento))].sort((a, b) => a.localeCompare(b, 'pt'));
   const anosDisponiveis = [...new Set(resumoTotal.map(g => g.ano))].sort((a, b) => (Number(b) || 0) - (Number(a) || 0));
   if (filtroOmNc.dept !== 'TODOS' && !deptsDisponiveis.includes(filtroOmNc.dept)) filtroOmNc.dept = 'TODOS';
-  if (filtroOmNc.ano !== 'TODOS' && !anosDisponiveis.includes(filtroOmNc.ano)) filtroOmNc.ano = 'TODOS';
+  filtroOmNc.anos = filtroOmNc.anos.filter(a => anosDisponiveis.includes(a));
 
   const resumo = obterResumoOmNcFiltrado();
 
   // Auditorias (IDs distintos) no âmbito do filtro, incluindo as que não têm OM/NC
-  const auditoriasNoFiltro = new Set((relatoriosSheet || [])
+  const registosNoFiltro = (relatoriosSheet || [])
     .filter(r => r && r.id)
     .filter(r => filtroOmNc.dept === 'TODOS' || ((r.departamento || 'Sem departamento').trim() || 'Sem departamento') === filtroOmNc.dept)
-    .filter(r => filtroOmNc.ano === 'TODOS' || extrairAnoRelatorio(r) === filtroOmNc.ano)
-    .map(r => r.id)).size;
+    .filter(r => !filtroOmNc.anos.length || filtroOmNc.anos.includes(extrairAnoRelatorio(r)));
+  const auditoriasNoFiltro = new Set(registosNoFiltro.map(r => r.id)).size;
 
   const totalOm = resumo.reduce((acc, item) => acc + item.om, 0);
   const totalNc = resumo.reduce((acc, item) => acc + item.nc, 0);
   const mediaPorAuditoria = auditoriasNoFiltro ? ((totalOm + totalNc) / auditoriasNoFiltro).toFixed(1) : '—';
 
   const deptsVisiveis = [...new Set(resumo.map(g => g.departamento))].sort((a, b) => a.localeCompare(b, 'pt'));
-  const anosVisiveis = [...new Set(resumo.map(g => g.ano))].sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
+  // Anos selecionados ficam sempre visíveis (mesmo com 0 ocorrências) para permitir a comparação
+  const anosVisiveis = [...new Set(filtroOmNc.anos.length ? filtroOmNc.anos : resumo.map(g => g.ano))]
+    .sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
   const celula = (dept, ano) => resumo.find(g => g.departamento === dept && g.ano === ano) || { om: 0, nc: 0 };
   const totaisDept = deptsVisiveis.map(dept => {
     const grupos = resumo.filter(g => g.departamento === dept);
@@ -1473,10 +1485,31 @@ function renderResumoOmNc() {
       nc: grupos.reduce((a, g) => a + g.nc, 0)
     };
   }).sort((a, b) => (b.om + b.nc) - (a.om + a.nc));
-  const maxDept = Math.max(1, ...totaisDept.map(t => t.om + t.nc));
+  const comparar = anosVisiveis.length > 1;
+  const maxDept = comparar
+    ? Math.max(1, ...resumo.map(g => g.om + g.nc))
+    : Math.max(1, ...totaisDept.map(t => t.om + t.nc));
+
+  const comparacaoAnos = anosVisiveis.map(ano => {
+    const grupos = resumo.filter(g => g.ano === ano);
+    const om = grupos.reduce((x, g) => x + g.om, 0);
+    const nc = grupos.reduce((x, g) => x + g.nc, 0);
+    const auditorias = new Set(registosNoFiltro.filter(r => extrairAnoRelatorio(r) === ano).map(r => r.id)).size;
+    return { ano, om, nc, total: om + nc, auditorias, media: auditorias ? (om + nc) / auditorias : null };
+  });
+  const variacao = (atual, anterior) => {
+    if (anterior === undefined || anterior === null) return '<span style="color:var(--slate300)">—</span>';
+    const diff = atual - anterior;
+    if (diff === 0) return '<span style="color:var(--slate500)">=</span>';
+    const pct = anterior ? ` (${diff > 0 ? '+' : ''}${Math.round((diff / anterior) * 100)}%)` : '';
+    // Mais OM/NC é pior: subida a vermelho, descida a verde
+    return `<span style="color:${diff > 0 ? 'var(--rose)' : 'var(--emerald)'};font-weight:800">${diff > 0 ? '▲ +' : '▼ '}${Number.isInteger(diff) ? diff : diff.toFixed(1)}${pct}</span>`;
+  };
 
   const btnFiltro = (campo, valor, label, cor) => {
-    const ativo = filtroOmNc[campo] === valor;
+    const ativo = campo === 'ano'
+      ? (valor === 'TODOS' ? !filtroOmNc.anos.length : filtroOmNc.anos.includes(valor))
+      : filtroOmNc[campo] === valor;
     const estilo = cor ? `style="--btn-color:${cor.main};--btn-light:${cor.light}"` : '';
     return `<button class="filter-btn${ativo ? ' active' : ''}" ${estilo} onclick="setFiltroOmNc('${campo}', '${String(valor).replace(/'/g, "\\'")}')">${label}</button>`;
   };
@@ -1510,7 +1543,7 @@ function renderResumoOmNc() {
         <div style="font-weight:800;font-size:12px;color:var(--slate500);text-transform:uppercase;letter-spacing:.05em">Análise OM/NC por departamento e ano</div>
         <div style="font-size:13px;color:var(--slate600);margin-top:.35rem">
           ${filtroOmNc.dept === 'TODOS' ? 'Todos os departamentos' : (DEPARTAMENTOS[filtroOmNc.dept] ? `${filtroOmNc.dept} — ${DEPARTAMENTOS[filtroOmNc.dept]}` : filtroOmNc.dept)}
-          · ${filtroOmNc.ano === 'TODOS' ? 'Todos os anos' : anoLabelOmNc(filtroOmNc.ano)}
+          · ${!filtroOmNc.anos.length ? 'Todos os anos' : [...filtroOmNc.anos].sort().map(anoLabelOmNc).join(', ')}
         </div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="copiarResumoOmNcParaClipboard()">📋 Copiar</button>
@@ -1521,7 +1554,7 @@ function renderResumoOmNc() {
       ${btnFiltro('dept', 'TODOS', 'Todos')}
       ${deptsDisponiveis.map(d => btnFiltro('dept', d, d, CORES_DEPARTAMENTOS[d])).join('')}
     </div>
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Ano</div>
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Ano <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--slate400)">(selecione vários para comparar)</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem">
       ${btnFiltro('ano', 'TODOS', 'Todos')}
       ${anosDisponiveis.map(a => btnFiltro('ano', a, anoLabelOmNc(a))).join('')}
@@ -1536,22 +1569,76 @@ function renderResumoOmNc() {
     </div>
 
     ${resumo.length ? `
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Distribuição por departamento</div>
+    ${comparar ? `
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Comparação entre anos</div>
+    <div style="overflow:auto;border:1px solid var(--slate200);border-radius:10px;background:#fff;margin-bottom:1.5rem">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;color:var(--slate700)">
+        <thead>
+          <tr style="background:var(--slate100)">
+            <th style="${th}">Ano</th>
+            <th style="${th}">OM</th>
+            <th style="${th}">Δ OM</th>
+            <th style="${th}">NC</th>
+            <th style="${th}">Δ NC</th>
+            <th style="${th}">Total</th>
+            <th style="${th}">Δ Total</th>
+            <th style="${th}">Auditorias</th>
+            <th style="${th}">Média / auditoria</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${comparacaoAnos.map((c, i) => {
+            const ant = comparacaoAnos[i - 1];
+            return `
+            <tr>
+              <td style="${td};font-weight:800">${anoLabelOmNc(c.ano)}</td>
+              <td style="${td};color:var(--amber);font-weight:800">${c.om}</td>
+              <td style="${td}">${variacao(c.om, ant && ant.om)}</td>
+              <td style="${td};color:var(--rose);font-weight:800">${c.nc}</td>
+              <td style="${td}">${variacao(c.nc, ant && ant.nc)}</td>
+              <td style="${td};font-weight:800">${c.total}</td>
+              <td style="${td}">${variacao(c.total, ant && ant.total)}</td>
+              <td style="${td}">${c.auditorias}</td>
+              <td style="${td}">${c.media === null ? '—' : c.media.toFixed(1)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Distribuição por departamento${comparar ? ' e ano' : ''}</div>
     <div style="display:flex;gap:1rem;font-size:11px;color:var(--slate600);margin-bottom:.6rem">
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--amber);margin-right:.3rem"></span>OM</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--rose);margin-right:.3rem"></span>NC</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.5rem">
-      ${totaisDept.map(t => `
+      ${totaisDept.map(t => {
+        const barra = (om, nc) => `
+          <div style="display:flex;height:14px;background:var(--slate100);border-radius:4px;overflow:hidden">
+            <div style="width:${(om / maxDept) * 100}%;background:var(--amber)" title="${om} OM"></div>
+            <div style="width:${(nc / maxDept) * 100}%;background:var(--rose)" title="${nc} NC"></div>
+          </div>`;
+        if (!comparar) {
+          return `
         <div style="display:grid;grid-template-columns:minmax(70px,90px) 1fr auto;gap:.6rem;align-items:center;font-size:12px">
           <div style="font-weight:800;color:var(--slate700)" title="${DEPARTAMENTOS[t.dept] || t.dept}">${t.dept}</div>
-          <div style="display:flex;height:14px;background:var(--slate100);border-radius:4px;overflow:hidden">
-            <div style="width:${(t.om / maxDept) * 100}%;background:var(--amber)" title="${t.om} OM"></div>
-            <div style="width:${(t.nc / maxDept) * 100}%;background:var(--rose)" title="${t.nc} NC"></div>
-          </div>
+          ${barra(t.om, t.nc)}
           <div style="color:var(--slate600);white-space:nowrap">${par(t.om, t.nc)}</div>
-        </div>
-      `).join('')}
+        </div>`;
+        }
+        return `
+        <div style="padding:.35rem 0;border-bottom:1px solid var(--slate100)">
+          <div style="font-weight:800;color:var(--slate700);font-size:12px;margin-bottom:.3rem">${t.dept}${DEPARTAMENTOS[t.dept] ? ` <span style="font-weight:500;color:var(--slate500)">— ${DEPARTAMENTOS[t.dept]}</span>` : ''}</div>
+          ${anosVisiveis.map(a => {
+            const c = celula(t.dept, a);
+            return `
+          <div style="display:grid;grid-template-columns:minmax(70px,90px) 1fr auto;gap:.6rem;align-items:center;font-size:12px;margin-bottom:.25rem">
+            <div style="color:var(--slate500);font-weight:700;padding-left:.5rem">${anoLabelOmNc(a)}</div>
+            ${barra(c.om, c.nc)}
+            <div style="color:var(--slate600);white-space:nowrap">${par(c.om, c.nc)}</div>
+          </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
     </div>
 
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--slate500);margin-bottom:.5rem">Matriz departamento × ano</div>
